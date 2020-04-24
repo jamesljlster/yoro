@@ -1,0 +1,12 @@
+# CMake build files
+build
+CMakeCache.txt
+CMakeFiles
+
+# Temp file
+*.swp
+
+# Python
+*.pyc
+__pycache__
+

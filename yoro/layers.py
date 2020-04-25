@@ -1,45 +1,80 @@
 import torch
-from torch.nn import Module, Parameter
+from torch.nn import Module, Parameter, Conv2d
 from torch.nn import functional as F
 
 
-@torch.jit.script
-class YOROScalarParam:
-    """
-    Warning: TorchScript class is currently experimental
-    """
+class YOROLayer(Module):
 
-    def __init__(self):
+    __constants__ = [
+        'numClasses', 'gridWidth', 'gridHeight',
+        'anchorSize',
+        'degMin', 'degMax', 'degRange',
+        'degPartSize', 'degValueScale',
+        'degPartDepth', 'degValueDepth',
+        'bboxDepth', 'classDepth', 'objDepth',
+        'groupDepth', 'fmapDepth'
+    ]
 
-        self.anchorSize = 0
-        self.groupDepth = 0
+    def __init__(self, in_channels, num_classes,
+                 width, height, fmap_width, fmap_height, anchor,
+                 deg_min=-180, deg_max=180, deg_part_size=10):
 
-        self.objDepth = 0
-        self.classDepth = 0
-        self.bboxDepth = 0
-        self.degDepth = 0
-        self.degPartDepth = 0
-        self.degValueDepth = 0
-        self.degValueScale = 0.0
+        super(YOROLayer, self).__init__()
 
-        self.gridWidth = 0
-        self.gridHeight = 0
+        # Save parameters
+        self.numClasses = num_classes
+        self.gridWidth = width / fmap_width
+        self.gridHeight = height / fmap_height
 
+        # Build anchor
+        self.anchor = Parameter(torch.FloatTensor(anchor), requires_grad=False)
+        self.anchorSize = self.anchor.size()[0]
 
-class YOROInference(Module):
+        self.anchor[:, 0] /= self.gridWidth
+        self.anchor[:, 1] /= self.gridHeight
 
-    def __init__(self):
-        super(YOROInference, self).__init__()
+        self.anchorW = Parameter(
+            self.anchor[:, 0].view(1, -1, 1, 1).clone(), requires_grad=False)
+        self.anchorH = Parameter(
+            self.anchor[:, 1].view(1, -1, 1, 1).clone(), requires_grad=False)
 
-        # Placeholder for uninitialized scalar parameters
-        self.sParam = YOROScalarParam()
+        # Feature map specification construction: degree
+        self.degMin = deg_min
+        self.degMax = deg_max
+        self.degRange = deg_max - deg_min
 
-        # Placeholder for uninitialized tensor parameters
-        self.anchorW = Parameter(torch.zeros(1, 1, 1, 1), requires_grad=False)
-        self.anchorH = Parameter(torch.zeros(1, 1, 1, 1), requires_grad=False)
-        self.degAnchor = Parameter(torch.zeros(1), requires_grad=False)
+        self.degPartSize = deg_part_size
+        self.degValueScale = float(deg_part_size) / 2.0
+        self.degAnchor = Parameter(torch.arange(
+            0, self.degRange+1, deg_part_size, dtype=torch.float) + deg_min,
+            requires_grad=False)
 
+        self.degPartDepth = len(self.degAnchor)
+        self.degValueDepth = len(self.degAnchor)
+        self.degDepth = self.degPartDepth + self.degValueDepth
+
+        # Feature map specification construction: bbox
+        self.bboxDepth = 4  # x, y, w, h
+
+        # Feature map specification construction: class
+        self.classDepth = self.numClasses
+
+        # Feature map specification construction: objectness
+        self.objDepth = 1
+
+        # Feature map specification construction: final
+        self.groupDepth = self.objDepth + self.classDepth + self.bboxDepth + self.degDepth
+        self.fmapDepth = self.groupDepth * self.anchorSize
+
+        # Build regressor
+        self.regressor = Conv2d(in_channels=in_channels, out_channels=self.fmapDepth,
+                                kernel_size=3, padding=1)
+
+    @torch.jit.export
     def predict(self, inputs):
+
+        # Get convolution outputs
+        inputs = self.regressor(inputs)
 
         # Get tensor dimensions
         batch = inputs.size()[0]
@@ -47,7 +82,7 @@ class YOROInference(Module):
         fmapWidth = inputs.size()[3]
 
         # Rearange predict tensor
-        pred = inputs.view(batch, self.sParam.anchorSize, self.sParam.groupDepth,
+        pred = inputs.view(batch, self.anchorSize, self.groupDepth,
                            fmapHeight, fmapWidth).permute(0, 1, 3, 4, 2).contiguous()
 
         # Get outputs: objectness
@@ -55,23 +90,23 @@ class YOROInference(Module):
         conf = torch.sigmoid(pred[..., base])
 
         # Get outputs: class
-        base += self.sParam.objDepth
-        cls = pred[..., base:base + self.sParam.classDepth]
+        base += self.objDepth
+        cls = pred[..., base:base + self.classDepth]
 
         # Get outputs: bounding box
-        base += self.sParam.classDepth
+        base += self.classDepth
         x = torch.sigmoid(pred[..., base + 0])
         y = torch.sigmoid(pred[..., base + 1])
         w = pred[..., base + 2]
         h = pred[..., base + 3]
 
         # Get outputs: degree partition
-        base += self.sParam.bboxDepth
-        degPart = pred[..., base:base + self.sParam.degPartDepth]
+        base += self.bboxDepth
+        degPart = pred[..., base:base + self.degPartDepth]
 
         # Get outputs: degree value shift
-        base += self.sParam.degPartDepth
-        degShift = pred[..., base:base + self.sParam.degValueDepth]
+        base += self.degPartDepth
+        degShift = pred[..., base:base + self.degValueDepth]
 
         return (conf, cls, x, y, w, h, degPart, degShift)
 
@@ -97,17 +132,17 @@ class YOROInference(Module):
         size = conf.size()
         pred_boxes = torch.zeros(
             size[0], size[1], size[2], size[3], 4, device=inputs.device)
-        pred_boxes[..., 0] = (x.data + gridX) * self.sParam.gridWidth
-        pred_boxes[..., 1] = (y.data + gridY) * self.sParam.gridHeight
+        pred_boxes[..., 0] = (x.data + gridX) * self.gridWidth
+        pred_boxes[..., 1] = (y.data + gridY) * self.gridHeight
         pred_boxes[..., 2] = \
-            torch.exp(w.data) * self.anchorW * self.sParam.gridWidth
+            torch.exp(w.data) * self.anchorW * self.gridWidth
         pred_boxes[..., 3] = \
-            torch.exp(h.data) * self.anchorH * self.sParam.gridHeight
+            torch.exp(h.data) * self.anchorH * self.gridHeight
 
         idx = torch.argmax(degPart.data, dim=4)
         pred_deg = (self.degAnchor[idx] +
                     torch.gather(degShift.data, 4, idx.unsqueeze(-1)).squeeze(-1) *
-                    self.sParam.degValueScale)
+                    self.degValueScale)
 
         pred_conf = pred_conf.view(batch, -1)
         pred_class = pred_class.view(batch, -1)
@@ -117,76 +152,51 @@ class YOROInference(Module):
         return (pred_conf, pred_class, pred_boxes, pred_deg)
 
 
-class YOROTraining(YOROInference):
-
-    def __init__(self, backbone, numClasses, width=224, height=224):
-        super(YOROTraining, self).__init__()
-
-
 if __name__ == '__main__':
 
-    yoro = YOROInference()
+    anchor = [[42.48, 45.48],
+              [46.14, 34.85]]
+    yoro = YOROLayer(in_channels=512, num_classes=2, width=224, height=224,
+                     fmap_width=7, fmap_height=7, anchor=anchor)
 
-    numClasses = 2
-    degMin = -180
-    degMax = 180
-    degRange = degMax - degMin
-    degPartSize = 10
-
-    anchor = torch.FloatTensor([
-        [42.48, 45.48],
-        [46.14, 34.85],
-    ])
-
-    anchor[:, 0] /= 32
-    anchor[:, 1] /= 32
-
-    yoro.anchorW.data = anchor[:, 0].view(1, -1, 1, 1).clone()
-    yoro.anchorH.data = anchor[:, 1].view(1, -1, 1, 1).clone()
-    yoro.degAnchor.data = (torch.arange(
-        0, degRange + 1, degPartSize, dtype=torch.float) + degMin).clone()
-
-    sParam = YOROScalarParam()
-
-    sParam.gridWidth = 32
-    sParam.gridHeight = 32
-
-    sParam.anchorSize = 2
-    sParam.bboxDepth = 4
-    sParam.classDepth = numClasses
-    sParam.objDepth = 1
-
-    sParam.degValueScale = float(degPartSize) / 2.0
-    sParam.degPartDepth = len(yoro.degAnchor)
-    sParam.degValueDepth = len(yoro.degAnchor)
-    sParam.degDepth = sParam.degPartDepth + sParam.degValueDepth
-
-    sParam.groupDepth = sParam.objDepth + \
-        sParam.classDepth + sParam.bboxDepth + sParam.degDepth
-
-    yoro.sParam = sParam
-
-    src = torch.randn(2, yoro.sParam.groupDepth * yoro.sParam.anchorSize, 7, 7)
+    src = torch.randn(2, 512, 7, 7)
     out = yoro(src)
-    # print(out)
 
-    #scp = torch.jit.trace(yoro, src)
+    scp = torch.jit.script(
+        YOROLayer(in_channels=512, num_classes=2, width=224, height=224,
+                  fmap_width=7, fmap_height=7, anchor=anchor)
+    )
 
-    scp = torch.jit.script(YOROInference())
-    scp.sParam = yoro.sParam
-    params = {key: param for key, param in yoro.named_parameters()}
-    for key, param in scp.named_parameters():
-        param.data = params[key].data.clone()
+    #params = {key: param for key, param in yoro.named_parameters()}
+    # for key, param in scp.named_parameters():
+    #    param.data = params[key].data.clone()
+    scp.load_state_dict(yoro.state_dict())
 
+    #print('=== Parameters in yoro script module ===')
+    # for name, param in scp.named_parameters():
+    #    print(name, param)
+    # print()
+
+    #print('=== Modules in yoro script module ===')
+    # for name, module in scp.named_modules():
+    #    print(name, module)
+    # print()
+
+    print('=== Tensor comparison result (CPU) ===')
     scpOut = scp(src)
     for i in range(len(scpOut)):
         print(torch.equal(out[i], scpOut[i]))
+    print()
 
     yoro = yoro.to('cuda')
     scp = scp.to('cuda')
-    # for param in scp.named_parameters():
-    #    print(param)
 
     src = src.to('cuda')
-    out = scp(src)
+    scpOut = scp(src)
     out = yoro(src)
+
+    print('=== Tensor comparison result (CUDA) ===')
+    scpOut = scp(src)
+    for i in range(len(scpOut)):
+        print(torch.equal(out[i], scpOut[i]))
+    print()

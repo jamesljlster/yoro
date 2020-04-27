@@ -10,13 +10,18 @@ from torch.utils.data import Dataset
 
 def rbox_collate_fn(samples):
 
+    srcType = type(samples[0][0]).__name__
+
     images = []
     annos = []
     for image, anno in samples:
         images.append(image)
         annos.append(anno)
 
-    return torch.stack(images, 0), annos
+    if srcType == 'Tensor':
+        images = torch.stack(images, 0)
+
+    return images, annos
 
 
 class RBoxSample(Dataset):

@@ -1,21 +1,20 @@
+import torch
 import math
 import numpy as np
 import cv2 as cv
-from PIL import Image, ImageDraw
 
 
-def rbox_draw(images, annos):
+def rbox_draw(images, annos, to_tensor=False):
 
     # Convert source
     imType = type(images[0]).__name__
     if imType == 'Tensor':
         images = images.clone().permute(0, 2, 3, 1).numpy()
-        images = np.uint8(images * 255)
     else:
         cvtImages = []
         for image in images:
             cvtImages.append(np.array(image).copy())
-        images = np.array(cvtImages)
+        images = np.float32(cvtImages) / 255.0
 
     # Draw annotations
     for i in range(images.shape[0]):
@@ -74,5 +73,9 @@ def rbox_draw(images, annos):
 
         # Assign result
         images[i] = cv.cvtColor(mat, cv.COLOR_BGR2RGB)
+
+    # Convert to tensor format
+    if to_tensor:
+        images = torch.tensor(images).permute(0, 3, 1, 2)
 
     return images

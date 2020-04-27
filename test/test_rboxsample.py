@@ -1,5 +1,6 @@
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
+from torchvision.utils import make_grid
 
 from yoro.transforms import RBox_ToTensor
 from yoro.datasets import RBoxSample, rbox_collate_fn
@@ -13,16 +14,19 @@ def imshow(img):
 
 if __name__ == '__main__':
 
-    # data = RBoxSample('~/dataset/coating_test',
-    #                   '~/dataset/coating_test/coating.names')
+    data = RBoxSample('~/dataset/coating_test',
+                      '~/dataset/coating_test/coating.names')
+    print('numClasses:', data.numClasses)
+    print('classNames:', data.classNames)
+    dataLoader = DataLoader(data, batch_size=12, collate_fn=rbox_collate_fn)
+    for images, annos in dataLoader:
+        images = make_grid(rbox_draw(images, annos, to_tensor=True), nrow=4)
+        imshow(images.numpy().transpose(1, 2, 0))
+
     data = RBoxSample('~/dataset/coating_test',
                       '~/dataset/coating_test/coating.names',
                       transform=RBox_ToTensor())
-    print('numClasses:', data.numClasses)
-    print('classNames:', data.classNames)
-    dataLoader = DataLoader(data, batch_size=2, collate_fn=rbox_collate_fn)
+    dataLoader = DataLoader(data, batch_size=12, collate_fn=rbox_collate_fn)
     for images, annos in dataLoader:
-        images = rbox_draw(images, annos)
-        for image in images:
-            imshow(image)
-        exit()
+        images = make_grid(rbox_draw(images, annos, to_tensor=True), nrow=4)
+        imshow(images.numpy().transpose(1, 2, 0))

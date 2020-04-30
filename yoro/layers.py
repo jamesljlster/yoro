@@ -150,3 +150,156 @@ class YOROLayer(Module):
         pred_deg = pred_deg.view(batch, -1)
 
         return (pred_conf, pred_class, pred_boxes, pred_deg)
+
+    @torch.jit.unused
+    def loss(self, inputs, targets):
+
+        device = inputs.device
+        dtype = inputs.dtype
+
+        batch = inputs.size()[0]
+
+        # Predict
+        (conf, cls, x, y, w, h, degPart, degShift) = self.predict(inputs)
+
+        # Build target
+        tList = []
+        for n in range(batch):
+            for anno in targets[n]:
+
+                degDiff = anno['degree'] - self.degAnchor
+                degPartIdx = torch.argmin(torch.abs(degDiff))
+                degShiftValue = degDiff[degPartIdx] / self.degValueScale
+
+                tList.append([
+                    n, anno['label'],
+                    anno['x'] / self.gridWidth,
+                    anno['y'] / self.gridHeight,
+                    anno['w'] / self.gridWidth,
+                    anno['h'] / self.gridHeight,
+                    degPartIdx.item(), degShiftValue.item()
+                ])
+
+        targets = torch.tensor(tList, dtype=dtype, device=device)
+        objs = targets.size()[0]
+
+        # Mask of feature map
+        objMask = torch.empty(
+            conf.size(), dtype=torch.bool, device=device).fill_(False)
+        nobjMask = torch.empty(
+            conf.size(), dtype=torch.bool, device=device).fill_(True)
+
+        # Get targets
+        if objs:
+
+            n = targets[:, 0].long()
+            clsT = targets[:, 1].long()
+
+            boxT = targets[:, 2:6]
+            xT = boxT[:, 0]
+            yT = boxT[:, 1]
+            wT = boxT[:, 2]
+            hT = boxT[:, 3]
+
+            degPartT = targets[:, 6].long()
+            degShiftT = targets[:, 7]
+
+            # Get anchor scores
+            acrScore = self.anchor_score(boxT[:, 2:])
+            _, acrIdx = acrScore.max(dim=1)
+
+            # Set mask
+            xIdx = xT.long()
+            yIdx = yT.long()
+
+            objMask[n, acrIdx, yIdx, xIdx] = True
+            nobjMask[n, acrIdx, yIdx, xIdx] = False
+
+            # Ignore objectness if anchor score greater than threshold
+            # for i, score in enumerate(acrScore):
+            #    nobjMask[n[i], (score > self.ignThres),
+            #             xIdx[i], yIdx[i]] = False
+
+        # Build loss
+        confT = objMask.float()
+
+        objLoss = F.binary_cross_entropy(conf[objMask], confT[objMask])
+        nobjLoss = F.binary_cross_entropy(conf[nobjMask], confT[nobjMask])
+
+        if objs:
+
+            # Class loss
+            clsLoss = F.cross_entropy(
+                cls[n, acrIdx, yIdx, xIdx], clsT, reduction='sum')
+
+            # Bounding box loss
+            xLoss = F.mse_loss(
+                x[n, acrIdx, yIdx, xIdx], xT - xT.floor(), reduction='sum')
+            yLoss = F.mse_loss(
+                y[n, acrIdx, yIdx, xIdx], yT - yT.floor(), reduction='sum')
+            wLoss = F.mse_loss(
+                w[n, acrIdx, yIdx, xIdx],
+                torch.log(wT / self.anchor[acrIdx, 0]),
+                reduction='sum')
+            hLoss = F.mse_loss(
+                h[n, acrIdx, yIdx, xIdx],
+                torch.log(hT / self.anchor[acrIdx, 1]),
+                reduction='sum')
+
+            boxLoss = xLoss + yLoss + wLoss + hLoss
+
+            # Degree loss
+            degPartLoss = F.cross_entropy(
+                degPart[n, acrIdx, yIdx, xIdx], degPartT, reduction='sum')
+            degShiftLoss = F.mse_loss(
+                degShift[n, acrIdx, yIdx, xIdx, degPartT], degShiftT, reduction='sum')
+
+        else:
+
+            clsLoss = torch.tensor([0], dtype=dtype, device=device)
+            boxLoss = torch.tensor([0], dtype=dtype, device=device)
+            degPartLoss = torch.tensor([0], dtype=dtype, device=device)
+            degShiftLoss = torch.tensor([0], dtype=dtype, device=device)
+
+        loss = (objLoss + nobjLoss + clsLoss +
+                boxLoss + degPartLoss + degShiftLoss)
+
+        # Estimation
+        objConf = conf[objMask].mean().item()
+        nobjConf = conf[nobjMask].mean().item()
+
+        clsAccu = 0
+        degPartAccu = 0
+        if objs:
+
+            # Class accuracy
+            clsAccu = (torch.argmax(
+                cls[n, acrIdx, yIdx, xIdx], dim=1) == clsT).sum().float().item()
+
+            # Degree partitioin accuracy
+            degPartAccu = (torch.argmax(
+                degPart[n, acrIdx, yIdx, xIdx], dim=1) == degPartT).sum().float().item()
+
+        # Summarize accuracy
+        accu = {
+            'obj': (objConf, 1),
+            'nobj': (nobjConf, 1),
+            'cls': (clsAccu, objs),
+            'deg': (degPartAccu, objs)
+        }
+
+        return loss, accu
+
+    @torch.jit.unused
+    def anchor_score(self, box):
+
+        box = box.view(box.size()[0], -1, 2)
+        anchor = self.anchor.to(box.device).unsqueeze(0)
+
+        bw, bh = box[..., 0], box[..., 1]
+        aw, ah = anchor[..., 0], anchor[..., 1]
+
+        interArea = torch.min(bw, aw) * torch.min(bh, ah)
+        unionArea = bw * bh + aw * ah - interArea
+
+        return interArea / (unionArea + 1e-8)

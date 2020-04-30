@@ -50,3 +50,16 @@ if __name__ == '__main__':
     for i in range(len(scpOut)):
         print(torch.equal(out[i], scpOut[i]))
     print()
+
+    annoList = [
+        [
+            {'label': 0, 'x': 100, 'y': 100, 'w': 150, 'h': 120, 'degree': 30},
+            {'label': 1, 'x': 150, 'y': 50, 'w': 200, 'h': 150, 'degree': -40}
+        ],
+        [
+            {'label': 1, 'x': 120, 'y': 150, 'w': 250, 'h': 100, 'degree': 10}
+        ]
+    ]
+    loss, accu = yoro.loss(src, annoList)
+    print('loss:', loss)
+    print('accu:', accu)

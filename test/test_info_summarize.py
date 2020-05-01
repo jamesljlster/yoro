@@ -1,5 +1,5 @@
 import torch
-from yoro.util.info_summarize import *
+from yoro.utils.info_summarize import *
 
 if __name__ == '__main__':
 

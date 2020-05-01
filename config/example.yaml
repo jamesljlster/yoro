@@ -1,0 +1,24 @@
+coating:
+  construct:
+    width: 224
+    height: 224
+    anchor:
+      - [42.48, 45.48]
+      - [46.14, 34.85]
+    deg_min: -180
+    deg_max: 180
+    deg_part_size: 10
+
+  dataset:
+    names_file: ~/dataset/coating_train/coating.names
+    train_dir: ~/dataset/coating_train
+    valid_dir: ~/dataset/coating_test
+
+  transform:
+    brightness: 0.3
+    contrast: 0.3
+    saturation: 0.3
+    hue: 0.1
+    degree: 30
+    translate: [0.3, 0.3]
+    scale: [0.7, 1.3]

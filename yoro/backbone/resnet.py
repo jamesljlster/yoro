@@ -1,6 +1,8 @@
 from torch.nn import Module
 from torchvision.models import resnet
 
+__all__ = ['ResNet']
+
 
 class ResNet(Module):
     def __init__(self, model_name, **kwargs):

@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 
 def tensor_simplify(src):
     out = src.tolist()
@@ -12,7 +10,6 @@ def tensor_simplify(src):
 def elem_assign(src):
 
     if type(src).__name__ == 'Tensor':
-        print('foo')
         src = tensor_simplify(src)
 
     out = None

@@ -105,3 +105,35 @@ def info_simplify(src):
         out[key] = elem_div(src[key][0], src[key][1])
 
     return out
+
+
+def elem_repr_recursive(reprStr, src, fmt):
+
+    if type(src).__name__ == 'Tensor':
+        src = tensor_simplify(src)
+
+    srcType = type(src).__name__
+    if srcType == 'dict':
+        strList = []
+        for key in src.keys():
+            strList.append(elem_repr_recursive(key + ': ', src[key], fmt))
+        subStr = '{' + ', '.join(strList) + '}'
+
+    elif srcType == 'list':
+        strList = []
+        for i in range(len(src)):
+            strList.append(elem_repr_recursive('', src[i], fmt))
+        subStr = '[' + ', '.join(strList) + ']'
+
+    else:
+        subStr = fmt.format(src)
+
+    return reprStr + subStr
+
+
+def info_represent(src, decimal=3):
+
+    info = info_simplify(src)
+    fmt = '{0:.%df}' % decimal
+
+    return elem_repr_recursive('', info, fmt)

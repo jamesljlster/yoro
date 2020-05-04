@@ -20,4 +20,5 @@ if __name__ == '__main__':
 
     print('info:', info)
     print('info (simplify):', info_simplify(info))
-    print('info:', info)
+    print('info (constantency):', info)
+    print('info (represent):', info_represent(info))

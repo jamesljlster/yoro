@@ -1,7 +1,9 @@
+InfoTypeErr = TypeError('Unsupported information type')
+
 
 def tensor_simplify(src):
     out = src.tolist()
-    if len(out) == 1:
+    if type(out).__name__ == 'list' and len(out) == 1:
         out = out[0]
 
     return out
@@ -32,9 +34,17 @@ def elem_assign(src):
 
 def info_assign(src):
 
-    out = {}
-    for key in src.keys():
-        out[key] = [elem_assign(src[key][0]), src[key][1]]
+    srcType = type(src).__name__
+    if srcType == 'dict':
+        out = {}
+        for key in src.keys():
+            out[key] = [elem_assign(src[key][0]), src[key][1]]
+
+    elif srcType == 'tuple':
+        out = (elem_assign(src[0]), src[1])
+
+    else:
+        raise InfoTypeErr
 
     return out
 
@@ -65,9 +75,17 @@ def info_add(out, src):
         out = info_assign(src)
 
     else:
-        for key in src.keys():
-            out[key][0] = elem_add(out[key][0], src[key][0])
-            out[key][1] += src[key][1]
+        srcType = type(src).__name__
+        if srcType == 'dict':
+            for key in src.keys():
+                out[key][0] = elem_add(out[key][0], src[key][0])
+                out[key][1] += src[key][1]
+
+        elif srcType == 'tuple':
+            out = (elem_add(out[0], src[0]), out[1] + src[1])
+
+        else:
+            raise InfoTypeErr
 
     return out
 
@@ -97,9 +115,17 @@ def elem_div(src, divisor):
 
 def info_simplify(src):
 
-    out = {}
-    for key in src.keys():
-        out[key] = elem_div(src[key][0], src[key][1])
+    srcType = type(src).__name__
+    if srcType == 'dict':
+        out = {}
+        for key in src.keys():
+            out[key] = elem_div(src[key][0], src[key][1])
+
+    elif srcType == 'tuple':
+        out = elem_div(src[0], src[1])
+
+    else:
+        raise InfoTypeErr
 
     return out
 

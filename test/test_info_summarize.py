@@ -3,6 +3,8 @@ from yoro.utils.info_summarize import *
 
 if __name__ == '__main__':
 
+    print('=== Test quantized info ===')
+
     info = None
     info1 = {
         'loss': (torch.FloatTensor([0.7]), 1),
@@ -22,3 +24,19 @@ if __name__ == '__main__':
     print('info (simplify):', info_simplify(info))
     print('info (constantency):', info)
     print('info (represent):', info_represent(info))
+    print()
+
+    print('=== Test scalar info ===')
+
+    info = None
+    info1 = (torch.FloatTensor([0.7]), 1)
+    info2 = (torch.FloatTensor([0.3]), 1)
+
+    info = info_add(info, info1)
+    info = info_add(info, info2)
+
+    print('info:', info)
+    print('info (simplify):', info_simplify(info))
+    print('info (constantency):', info)
+    print('info (represent):', info_represent(info))
+    print()

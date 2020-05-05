@@ -125,8 +125,7 @@ class YOROTrain(object):
         while self.epoch < self.maxEpoch:
 
             runInfo = None
-            runLoss = 0
-            instSize = 0
+            runLoss = None
 
             loop = tqdm(self.traLoader)
             for inst in loop:
@@ -141,24 +140,23 @@ class YOROTrain(object):
                 # Training on mini-batch
                 out = self.backbone(inputs)
                 loss, info = self.yoroLayer.loss(out, targets)
-                loss.backward()
+                loss[0].backward()
                 self.optimizer.step()
 
                 # Estimating
                 runInfo = info_add(runInfo, info)
-                runLoss += loss.item()
-                instSize += inputs.size()[0]
+                runLoss = info_add(runLoss, loss)
 
                 # Show training message
                 loop.set_description('Epoch %d/%d' %
                                      (self.epoch + 1, self.maxEpoch))
-                loop.set_postfix_str('loss: %g, %s' % (
-                    runLoss / (loop.n + 1),
+                loop.set_postfix_str('loss: %s, %s' % (
+                    info_represent(runLoss),
                     info_represent(runInfo)
                 ))
 
             # Logging
-            runLoss = runLoss / len(self.traLoader)
+            runLoss = info_simplify(runLoss)
             runInfo = info_simplify(runInfo)
 
             if saveLog:

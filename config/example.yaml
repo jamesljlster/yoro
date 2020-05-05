@@ -15,8 +15,8 @@ construct:
 
 train_param:
   max_epoch: 30000
-  esti_epoch: 10
-  bak_epoch: 100
+  esti_epoch: 100
+  bak_epoch: 1000
   batch: 16
   num_workers: 8
   optimizer:

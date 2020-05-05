@@ -262,7 +262,7 @@ class YOROLayer(Module):
             degShiftLoss = torch.tensor([0], dtype=dtype, device=device)
 
         loss = ((objLoss + nobjLoss + clsLoss +
-                 boxLoss + degPartLoss + degShiftLoss), batch)
+                 boxLoss + degPartLoss + degShiftLoss), 1)
 
         # Estimation
         objConf = conf[objMask].mean().item()

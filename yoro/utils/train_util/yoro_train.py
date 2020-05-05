@@ -5,14 +5,14 @@ from torch import optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
-from ..datasets import RBoxSample, rbox_collate_fn
-from ..transforms import \
+from ...datasets import RBoxSample, rbox_collate_fn
+from ...transforms import \
     RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToSquare, RBox_ToTensor
-from .. import backbone
-from ..layers import YOROLayer
+from ... import backbone
+from ...layers import YOROLayer
 
 
-class TrainClass(object):
+class YOROTrain(object):
 
     def __init__(self, config_path):
 

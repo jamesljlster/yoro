@@ -1,6 +1,7 @@
 import yaml
-import torch
+from tqdm.auto import tqdm
 
+import torch
 from torch import optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
@@ -10,6 +11,7 @@ from ...transforms import \
     RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToSquare, RBox_ToTensor
 from ... import backbone
 from ...layers import YOROLayer
+from ..info_summarize import info_add, info_simplify, info_represent
 
 
 class YOROTrain(object):
@@ -71,7 +73,8 @@ class YOROTrain(object):
 
         # Configure backbone
         cfgBBone = cfgCons['backbone']
-        self.backbone = backbone.__dict__[cfgBBone['name']](**cfgBBone['args'])
+        self.bboneArgs = cfgBBone['args']
+        self.backbone = backbone.__dict__[cfgBBone['name']](**self.bboneArgs)
         self.backbone = self.backbone.to(self.dev)
 
         # Configure yoro layer
@@ -82,11 +85,20 @@ class YOROTrain(object):
         out = self.backbone(src.to(self.dev))
         fmapSize = out.size()
 
-        self.yoroLayer = YOROLayer(
-            in_channels=fmapSize[1], num_classes=trainSet.numClasses,
-            width=width, height=height, fmap_width=fmapSize[2], fmap_height=fmapSize[3],
-            anchor=cfgCons['anchor'], deg_min=cfgCons['deg_min'], deg_max=cfgCons['deg_max'],
-            deg_part_size=cfgCons['deg_part_size'])
+        self.yoroArgs = {
+            'in_channels': fmapSize[1],
+            'num_classes': trainSet.numClasses,
+            'width': width,
+            'height': height,
+            'fmap_width': fmapSize[2],
+            'fmap_height': fmapSize[3],
+            'anchor': cfgCons['anchor'],
+            'deg_min': cfgCons['deg_min'],
+            'deg_max': cfgCons['deg_max'],
+            'deg_part_size': cfgCons['deg_part_size']
+        }
+
+        self.yoroLayer = YOROLayer(**self.yoroArgs).to(self.dev)
         self.yoroLayer = self.yoroLayer.to(self.dev)
 
         # Configure optimizer
@@ -107,3 +119,53 @@ class YOROTrain(object):
         # Training log
         self.trainLog = {}
         self.validLog = {}
+
+    def train(self, saveLog=True):
+
+        while self.epoch < self.maxEpoch:
+
+            runInfo = None
+            runLoss = 0
+            instSize = 0
+
+            loop = tqdm(self.traLoader)
+            for inst in loop:
+
+                # Get inputs and targets
+                inputs, targets = inst
+                inputs = inputs.to(self.dev)
+
+                # Zero gradients
+                self.optimizer.zero_grad()
+
+                # Training on mini-batch
+                out = self.backbone(inputs)
+                loss, info = self.yoroLayer.loss(out, targets)
+                loss.backward()
+                self.optimizer.step()
+
+                # Estimating
+                runInfo = info_add(runInfo, info)
+                runLoss += loss.item()
+                instSize += inputs.size()[0]
+
+                # Show training message
+                loop.set_description('Epoch %d/%d' %
+                                     (self.epoch + 1, self.maxEpoch))
+                loop.set_postfix_str('loss: %g, %s' % (
+                    runLoss / (loop.n + 1),
+                    info_represent(runInfo)
+                ))
+
+            # Logging
+            runLoss = runLoss / len(self.traLoader)
+            runInfo = info_simplify(runInfo)
+
+            if saveLog:
+                self.trainLog[self.epoch + 1] = {
+                    'loss': runLoss,
+                    'info': runInfo
+                }
+
+            # Increase iterating index
+            self.epoch = self.epoch + 1

@@ -281,14 +281,14 @@ class YOROLayer(Module):
                 degPart[n, acrIdx, yIdx, xIdx], dim=1) == degPartT).sum().float().item()
 
         # Summarize accuracy
-        accu = {
+        info = {
             'obj': (objConf, 1),
             'nobj': (nobjConf, 1),
             'cls': (clsAccu, objs),
             'deg': (degPartAccu, objs)
         }
 
-        return loss, accu
+        return loss, info
 
     @torch.jit.unused
     def anchor_score(self, box):

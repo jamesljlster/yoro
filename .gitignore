@@ -13,3 +13,6 @@ __pycache__
 # Backup files
 *.backup
 *.sdict
+
+# Model files
+*.zip

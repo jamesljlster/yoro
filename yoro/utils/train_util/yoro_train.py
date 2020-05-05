@@ -1,5 +1,6 @@
 import yaml
 from tqdm.auto import tqdm
+from collections import OrderedDict
 
 from glob import glob
 from os import makedirs
@@ -7,6 +8,7 @@ from os.path import join, exists, isdir, isfile, splitext, basename
 
 import torch
 from torch import optim
+from torch.nn import Sequential
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
@@ -77,9 +79,9 @@ class YOROTrain(object):
 
         # Configure backbone
         cfgBBone = cfgCons['backbone']
+        self.bboneClass = backbone.__dict__[cfgBBone['name']]
         self.bboneArgs = cfgBBone['args']
-        self.backbone = backbone.__dict__[cfgBBone['name']](**self.bboneArgs)
-        self.backbone = self.backbone.to(self.dev)
+        self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
 
         # Configure yoro layer
         height = cfgCons['height']
@@ -268,3 +270,19 @@ class YOROTrain(object):
 
         self.trainLog = bak['trainLog']
         self.validLog = bak['validLog']
+
+    def export_model(self, path=None):
+
+        # Auto selection
+        if path == None:
+            path = '_'.join([self.name, 'epoch', str(self.epoch)]) + '.zip'
+
+        # Compose sequential model for torchscript
+        model = torch.jit.script(Sequential(OrderedDict([
+            ('backbone', self.bboneClass(**self.bboneArgs)),
+            ('yoro', YOROLayer(**self.yoroArgs))
+        ])))
+
+        # Save model
+        print('Export model to:', path)
+        model.save(path)

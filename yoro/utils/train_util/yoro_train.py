@@ -1,6 +1,10 @@
 import yaml
 from tqdm.auto import tqdm
 
+from glob import glob
+from os import makedirs
+from os.path import join, exists, isdir, isfile, splitext, basename
+
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
@@ -120,6 +124,15 @@ class YOROTrain(object):
         self.trainLog = {}
         self.validLog = {}
 
+        # Check backup folder
+        self.bakDir = self.name + '.backup'
+        if exists(self.bakDir):
+            if not isdir(self.bakDir):
+                raise FileExistsError(
+                    '\'{}\' exists and it is not a directory'.format(self.bakDir))
+        else:
+            makedirs(self.bakDir)
+
     def train(self, saveLog=True):
 
         while self.epoch < self.maxEpoch:
@@ -156,14 +169,102 @@ class YOROTrain(object):
                 ))
 
             # Logging
-            runLoss = info_simplify(runLoss)
-            runInfo = info_simplify(runInfo)
-
             if saveLog:
                 self.trainLog[self.epoch + 1] = {
-                    'loss': runLoss,
-                    'info': runInfo
+                    'loss': info_simplify(runLoss),
+                    'info': info_simplify(runInfo)
                 }
 
             # Increase iterating index
             self.epoch = self.epoch + 1
+
+            # Validating
+            if self.epoch % self.estiEpoch == 0:
+                self.valid(saveLog=saveLog)
+
+            # Backup
+            if self.epoch % self.bakEpoch == 0:
+                self.backup()
+
+    def valid(self, saveLog=False):
+
+        # Change to evaluate mode
+        self.backbone.eval()
+        self.yoroLayer.eval()
+
+        # Show message header
+        print()
+        print('=== Validation on Epoch %d ===' % self.epoch)
+
+        # Estimating
+        runInfo = None
+        runLoss = None
+
+        loop = tqdm(self.tstLoader, leave=False)
+        for inst in loop:
+
+            # Get inputs and targets
+            inputs, targets = inst
+            inputs = inputs.to(self.dev)
+
+            # Forward
+            out = self.backbone(inputs)
+            loss, info = self.yoroLayer.loss(out, targets)
+
+            # Accumulate informations
+            runInfo = info_add(runInfo, info)
+            runLoss = info_add(runLoss, loss)
+
+        # Show message
+        print('Loss: %s' % info_represent(runLoss))
+        print('Info: %s' % info_represent(runInfo))
+        print()
+
+        # Logging
+        if saveLog:
+            self.validLog[self.epoch] = {
+                'loss': info_simplify(runInfo),
+                'info': info_simplify(runLoss)
+            }
+
+    def backup(self):
+
+        # Make backup
+        bakName = 'epoch_' + str(self.epoch) + '.sdict'
+        bakPath = join(self.bakDir, bakName)
+
+        print('Backup to:', bakPath)
+        torch.save({
+            'epoch': self.epoch,
+
+            'bbone_state_dict': self.backbone.state_dict(),
+            'yoro_state_dict': self.yoroLayer.state_dict(),
+            'optim_state_dict': self.optimizer.state_dict(),
+
+            'trainLog': self.trainLog,
+            'validLog': self.validLog
+        }, bakPath)
+
+    def restore(self, path=None):
+
+        # Auto selection
+        if path == None:
+            bakFiles = \
+                [f for f in glob(join(self.bakDir, '*.sdict')) if isfile(f)]
+            selBase = \
+                [int(splitext(basename(f))[0].split('_')[1]) for f in bakFiles]
+            path = bakFiles[selBase.index(max(selBase))]
+
+        # Load backup
+        print('Restore from:', path)
+        bak = torch.load(path)
+
+        # Load parameters
+        self.epoch = bak['epoch']
+
+        self.backbone.load_state_dict(bak['bbone_state_dict'])
+        self.yoroLayer.load_state_dict(bak['yoro_state_dict'])
+        self.optimizer.load_state_dict(bak['optim_state_dict'])
+
+        self.trainLog = bak['trainLog']
+        self.validLog = bak['validLog']

@@ -10,3 +10,6 @@ CMakeFiles
 *.pyc
 __pycache__
 
+# Backup files
+*.backup
+*.sdict

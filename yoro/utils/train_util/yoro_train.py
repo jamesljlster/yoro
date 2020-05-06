@@ -59,14 +59,16 @@ class YOROTrain(object):
                 scale=cfgTf['scale'])
         ]
 
-        transform = Compose(tfPrefix + tfContent + tfSuffix)
+        tfTrain = Compose(tfPrefix + tfContent + tfSuffix)
+        tfValid = tfTrain if cfgTf['apply_on_valid'] \
+            else Compose(tfPrefix + tfSuffix)
 
         # Configure dataset
         cfgData = cfg['dataset']
         trainSet = RBoxSample(
-            cfgData['train_dir'], cfgData['names_file'], transform=transform)
+            cfgData['train_dir'], cfgData['names_file'], transform=tfTrain)
         validSet = RBoxSample(
-            cfgData['valid_dir'], cfgData['names_file'], transform=transform)
+            cfgData['valid_dir'], cfgData['names_file'], transform=tfValid)
 
         self.traLoader = DataLoader(
             trainSet, shuffle=True, collate_fn=rbox_collate_fn,
@@ -105,7 +107,6 @@ class YOROTrain(object):
         }
 
         self.yoroLayer = YOROLayer(**self.yoroArgs).to(self.dev)
-        self.yoroLayer = self.yoroLayer.to(self.dev)
 
         # Configure optimizer
         cfgOptim = cfgTParam['optimizer']

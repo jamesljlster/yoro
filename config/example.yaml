@@ -36,3 +36,4 @@ transform:
   degrees: 30
   translate: [0.3, 0.3]
   scale: [0.7, 1.3]
+  apply_on_valid: false

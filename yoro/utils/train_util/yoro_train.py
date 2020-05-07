@@ -281,9 +281,22 @@ class YOROTrain(object):
         # Compose sequential model for torchscript
         model = torch.jit.script(Sequential(OrderedDict([
             ('backbone', self.bboneClass(**self.bboneArgs)),
-            ('yoro', YOROLayer(**self.yoroArgs))
+            ('yoroLayer', YOROLayer(**self.yoroArgs))
         ])))
+
+        model.backbone.load_state_dict(self.backbone.state_dict())
+        model.yoroLayer.load_state_dict(self.yoroLayer.state_dict())
 
         # Save model
         print('Export model to:', path)
         model.save(path)
+
+    def import_model(self, path):
+
+        # Load model
+        print('Import model from:', path)
+        model = torch.jit.load(path)
+
+        # Apply state dict
+        self.backbone.load_state_dict(model.backbone.state_dict())
+        self.yoroLayer.load_state_dict(model.yoroLayer.state_dict())

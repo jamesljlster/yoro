@@ -11,6 +11,8 @@ if __name__ == '__main__':
 
     # Load model and image
     model = torch.jit.load('coating_epoch_30000.zip')
+    model.eval()
+
     img = cv.imread(
         './test/test_image/CamToolbox_20200121_154634.jpg', cv.IMREAD_COLOR)
 

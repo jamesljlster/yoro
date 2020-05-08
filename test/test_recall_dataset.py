@@ -16,6 +16,7 @@ if __name__ == '__main__':
 
     tc = YOROTrain('config/example.yaml')
     model = torch.jit.load('coating_epoch_30000.zip').to(tc.dev)
+    model.eval()
 
     for images, annos in tc.tstLoader:
 

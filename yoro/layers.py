@@ -128,6 +128,7 @@ class YOROLayer(Module):
         # Decoding
         pred_conf = conf.data
         pred_class = torch.argmax(cls.data, dim=4)
+        pred_class_conf = cls.gather(4, pred_class.unsqueeze(-1)).data
 
         size = conf.size()
         pred_boxes = torch.zeros(
@@ -146,10 +147,11 @@ class YOROLayer(Module):
 
         pred_conf = pred_conf.view(batch, -1)
         pred_class = pred_class.view(batch, -1)
+        pred_class_conf = pred_class_conf.view(batch, -1)
         pred_boxes = pred_boxes.view(batch, -1, 4)
         pred_deg = pred_deg.view(batch, -1)
 
-        return (pred_conf, pred_class, pred_boxes, pred_deg)
+        return (pred_conf, pred_class, pred_class_conf, pred_boxes, pred_deg)
 
     @torch.jit.unused
     def loss(self, inputs, targets):

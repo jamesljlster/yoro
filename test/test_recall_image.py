@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     # Predict
     inputs = (torch.FloatTensor(mat) / 255).unsqueeze(0)
-    (pred_conf, pred_class, pred_boxes, pred_deg) = model(inputs)
+    (pred_conf, pred_class, pred_class_conf, pred_boxes, pred_deg) = model(inputs)
 
     predSize = pred_conf.size()
     batch = predSize[0]

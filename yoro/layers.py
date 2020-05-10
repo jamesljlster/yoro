@@ -128,7 +128,8 @@ class YOROLayer(Module):
         # Decoding
         pred_conf = conf.data
         pred_class = torch.argmax(cls.data, dim=4)
-        pred_class_conf = cls.gather(4, pred_class.unsqueeze(-1)).data
+        pred_class_conf = (torch.softmax(cls, dim=4)
+                           .gather(4, pred_class.unsqueeze(-1)).data)
 
         size = conf.size()
         pred_boxes = torch.zeros(

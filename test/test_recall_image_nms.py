@@ -97,6 +97,7 @@ if __name__ == '__main__':
 
     confTh = 0.9
     nmsTh = 0.7
+    scale = tarSize / netWidth
 
     batch = len(predList)
     nmsOut = [None] * batch
@@ -121,36 +122,17 @@ if __name__ == '__main__':
             inst.append({
                 'label': int(pred[rmIdx, 1][0].item()),
                 'degree': tmpInst[0],
-                'x': tmpInst[1],
-                'y': tmpInst[2],
-                'w': tmpInst[3],
-                'h': tmpInst[4]
+                'x': tmpInst[1] * scale - startX,
+                'y': tmpInst[2] * scale - startY,
+                'w': tmpInst[3] * scale,
+                'h': tmpInst[4] * scale
             })
 
             pred = pred[~rmIdx]
 
         nmsOut[n] = inst
 
-    """
-    scale = tarSize / netWidth
-    labels = []
-    for n in range(batch):
-        anno = []
-        for i in range(boxes):
-            if pred_conf[n, i] >= 0.9:
-                anno.append({
-                    'label': pred_class[n, i].item(),
-                    'degree': pred_deg[n, i].item(),
-                    'x': pred_boxes[n, i, 0].item() * scale - startX,
-                    'y': pred_boxes[n, i, 1].item() * scale - startY,
-                    'w': pred_boxes[n, i, 2].item() * scale,
-                    'h': pred_boxes[n, i, 3].item() * scale
-                })
-
-        print(anno)
-        labels.append(anno)
-
+    # Draw result
     result = rbox_draw([img], nmsOut)
     cv.imshow('result', result[0])
     cv.waitKey(0)
-    """

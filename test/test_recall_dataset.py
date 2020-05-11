@@ -21,7 +21,8 @@ if __name__ == '__main__':
     for images, annos in tc.tstLoader:
 
         inputs = images.to(tc.dev)
-        (pred_conf, pred_class, pred_boxes, pred_deg) = model(inputs)
+        (pred_conf, pred_class, pred_class_conf,
+         pred_boxes, pred_deg) = model(inputs)
 
         predSize = pred_conf.size()
         batch = predSize[0]

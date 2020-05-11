@@ -20,7 +20,8 @@ if __name__ == '__main__':
 
         inputs = images.to(tc.dev)
         outputs = tc.backbone(inputs)
-        (pred_conf, pred_class, pred_boxes, pred_deg) = tc.yoroLayer(outputs)
+        (pred_conf, pred_class, pred_class_conf,
+         pred_boxes, pred_deg) = tc.yoroLayer(outputs)
 
         predSize = pred_conf.size()
         batch = predSize[0]

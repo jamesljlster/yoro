@@ -7,8 +7,6 @@
 #include <torch/script.h>
 #include <opencv2/opencv.hpp>
 
-#define NET_SIZE 224
-
 using namespace std;
 using namespace cv;
 
@@ -16,6 +14,7 @@ using torch::from_blob;
 using torch::ScalarType;
 using torch::Tensor;
 using torch::jit::load;
+using torch::jit::Object;
 using torch::jit::script::Module;
 
 int main(int argc, char* argv[])
@@ -28,8 +27,13 @@ try
         return -1;
     }
 
-    // Import model
+    // Import model and settings
     Module model = load(argv[1]);
+    Object yoroLayer = model.attr("yoroLayer").toObject();
+
+    int netWidth = yoroLayer.attr("width").toInt();
+    int netHeight = yoroLayer.attr("height").toInt();
+
     model.eval();
 
     // Read image
@@ -44,15 +48,15 @@ try
     src.copyTo(mat(roi));
 
     // Resizing
-    resize(mat, mat, Size(NET_SIZE, NET_SIZE));
+    resize(mat, mat, Size(netWidth, netHeight));
 
     // Convert image to tensor
-    Tensor inputs =
-        from_blob(mat.ptr<char>(), {1, NET_SIZE, NET_SIZE, 3}, ScalarType::Byte)
-            .to(torch::kFloat)
-            .permute({0, 3, 1, 2})
-            .contiguous() /
-        255.0;
+    Tensor inputs = from_blob(mat.ptr<char>(), {1, netHeight, netWidth, 3},
+                              ScalarType::Byte)
+                        .to(torch::kFloat)
+                        .permute({0, 3, 1, 2})
+                        .contiguous() /
+                    255.0;
 
     // Forward
     auto outputs = model.forward({inputs}).toTuple();

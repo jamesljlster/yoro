@@ -6,7 +6,7 @@ from torch.nn import functional as F
 class YOROLayer(Module):
 
     __constants__ = [
-        'numClasses', 'gridWidth', 'gridHeight',
+        'numClasses', 'width', 'height', 'gridWidth', 'gridHeight',
         'anchorSize',
         'degMin', 'degMax', 'degRange',
         'degPartSize', 'degValueScale',
@@ -16,13 +16,15 @@ class YOROLayer(Module):
     ]
 
     def __init__(self, in_channels, num_classes,
-                 width, height, fmap_width, fmap_height, anchor,
+                 width: int, height: int, fmap_width, fmap_height, anchor,
                  deg_min=-180, deg_max=180, deg_part_size=10):
 
         super(YOROLayer, self).__init__()
 
         # Save parameters
         self.numClasses = num_classes
+        self.width = width
+        self.height = height
         self.gridWidth = width / fmap_width
         self.gridHeight = height / fmap_height
 

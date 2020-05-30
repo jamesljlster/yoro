@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.17 FATAL_ERROR)
 
 # Disable in-source builds to prevent source tree corruption.
 if(" ${CMAKE_SOURCE_DIR}" STREQUAL " ${CMAKE_BINARY_DIR}")
@@ -14,7 +14,13 @@ set(PROJECT_LANGUAGE CXX)
 # Environment variables
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Installation directory")
 option(BUILD_TEST "Enable building test" OFF)
-option(BUILD_SHARED_LIBS "Build shared library" OFF)
+option(BUILD_SHARED_LIBS "Build shared library" ON)
+option(BUILD_PYTHON_MODULE "Build python module (PyTorch extension)" ON)
+option(WITH_CUDA "Build with CUDA support" ON)
+
+if(${WITH_CUDA})
+    set(PROJECT_LANGUAGE ${PROJECT_LANGUAGE} CUDA)
+endif()
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Build configure" FORCE)
 if(DEFINED CMAKE_BUILD_TYPE)
@@ -27,9 +33,20 @@ endif()
 # Export compile commands (For some useful tools like YCM, Sourcetrail, ...)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
+# Setup RPATH settings for shared library loading
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
+if("${isSystemDir}" STREQUAL "-1")
+    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+endif("${isSystemDir}" STREQUAL "-1")
+
 # Library paths
 set(LIB_PATHS
-    #${CMAKE_CURRENT_SOURCE_DIR}/lib/demo_lib
+    ${CMAKE_CURRENT_SOURCE_DIR}/yoro/api
     )
 
 # Utility paths

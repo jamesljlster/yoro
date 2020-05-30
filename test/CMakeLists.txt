@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 2.8)
 set(PROJECT_NAME yoro_test)
 set(PROJECT_LANGUAGE CXX)
 set(PROJECT_DEPS
+    yoro_api
     ${TORCH_LIBRARIES}
     ${OpenCV_LIBS}
     )

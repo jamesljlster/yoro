@@ -114,13 +114,13 @@ if __name__ == '__main__':
             labelMatch = (pred[0, 1] == pred[:, 1])
             highSim = (rbox_similarity(pred[0, :].unsqueeze(0), pred) > nmsTh)
 
-            rmIdx = (labelMatch & highSim).squeeze(0)
-            weight = confScore[rmIdx].unsqueeze(0)
+            keepIdx = (labelMatch & highSim).squeeze(0)
+            weight = confScore[keepIdx].unsqueeze(0)
 
-            tmpInst = torch.matmul(weight, pred[rmIdx, 3:8]) / weight.sum()
+            tmpInst = torch.matmul(weight, pred[keepIdx, 3:8]) / weight.sum()
             tmpInst = tmpInst.squeeze(0).tolist()
             inst.append({
-                'label': int(pred[rmIdx, 1][0].item()),
+                'label': int(pred[keepIdx, 1][0].item()),
                 'degree': tmpInst[0],
                 'x': tmpInst[1] * scale - startX,
                 'y': tmpInst[2] * scale - startY,
@@ -128,7 +128,7 @@ if __name__ == '__main__':
                 'h': tmpInst[4] * scale
             })
 
-            pred = pred[~rmIdx]
+            pred = pred[~keepIdx]
 
         nmsOut[n] = inst
 

@@ -133,6 +133,7 @@ if __name__ == '__main__':
         nmsOut[n] = inst
 
     # Draw result
+    print(nmsOut)
     result = rbox_draw([img], nmsOut)
     cv.imshow('result', result[0])
     cv.waitKey(0)

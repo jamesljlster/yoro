@@ -7,12 +7,15 @@
 #include <torch/script.h>
 #include <opencv2/opencv.hpp>
 
+#include <calc_ops.hpp>
+
 using namespace std;
 using namespace cv;
 
 using torch::from_blob;
 using torch::ScalarType;
 using torch::Tensor;
+using torch::indexing::Slice;
 using torch::jit::load;
 using torch::jit::Object;
 using torch::jit::script::Module;
@@ -47,6 +50,10 @@ try
                     src.cols, src.rows);
     src.copyTo(mat(roi));
 
+    float startX = (tarSize - src.cols) / 2;
+    float startY = (tarSize - src.rows) / 2;
+    float scale = float(tarSize) / float(netWidth);
+
     // Resizing
     resize(mat, mat, Size(netWidth, netHeight));
 
@@ -67,7 +74,30 @@ try
     Tensor predBox = listRef[3].toTensor();
     Tensor predDeg = listRef[4].toTensor();
 
-    cout << (predConf > 0.9).sum() << endl;
+    // Denormalize
+    predBox *= scale;
+    predBox.index({"...", Slice(0, 2)}) -= torch::tensor({{{startX, startY}}});
+
+    // Concatenate tensor
+    Tensor pred = torch::cat({predConf.unsqueeze(-1).to(torch::kFloat),
+                              predClass.unsqueeze(-1).to(torch::kFloat),
+                              predClassConf.unsqueeze(-1),
+                              predDeg.unsqueeze(-1), predBox},
+                             2)
+                      .to(torch::kCPU);
+
+    // Processing non-maximum suppression
+    vector<vector<yoro_api::RBox>> nmsOut =
+        yoro_api::non_maximum_suppression(pred, 0.9, 0.7);
+    for (size_t n = 0; n < nmsOut.size(); n++)
+    {
+        cout << "Batch " << n << ":" << endl;
+        for (size_t i = 0; i < nmsOut[n].size(); i++)
+        {
+            cout << nmsOut[n][i].to_string() << endl;
+        }
+        cout << endl;
+    }
 
     return 0;
 }

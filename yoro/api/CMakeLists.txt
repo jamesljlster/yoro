@@ -51,7 +51,7 @@ set_target_properties(${MODULE_NAME} PROPERTIES
     )
 
 target_compile_definitions(${MODULE_NAME} PRIVATE
-    -DTORCH_EXTENSION_NAME=${PROJECT_NAME}
+    -DTORCH_EXTENSION_NAME=${MODULE_NAME}
     -DTORCH_API_INCLUDE_EXTENSION_H
     )
 

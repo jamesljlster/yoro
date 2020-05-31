@@ -12,6 +12,7 @@ namespace yoro_api
 struct RBox
 {
     /** Constructor */
+    RBox() {}
     RBox(float conf, int label, float degree, float x, float y, float w,
          float h)
         : conf(conf), label(label), degree(degree), x(x), y(y), w(w), h(h)
@@ -23,13 +24,13 @@ struct RBox
     std::string to_string() const;
 
     /** Attributes of rotated bounding box */
-    float conf;    // Confidence (objectness * class probability)
-    int label;     // Class label
-    float degree;  // Degree
-    float x;       // Center x
-    float y;       // Center y
-    float w;       // Width
-    float h;       // Height
+    float conf = 0;    // Confidence (objectness * class probability)
+    int label = 0;     // Class label
+    float degree = 0;  // Degree
+    float x = 0;       // Center x
+    float y = 0;       // Center y
+    float w = 0;       // Width
+    float h = 0;       // Height
 };
 
 class Detector

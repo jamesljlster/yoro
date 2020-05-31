@@ -16,3 +16,7 @@ __pycache__
 
 # Model files
 *.zip
+
+# Files for YouCompleteMe
+.ycm_extra_conf.py
+compile_commands.json

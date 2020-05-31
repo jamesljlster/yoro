@@ -16,11 +16,6 @@ set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Installation 
 option(BUILD_TEST "Enable building test" OFF)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 option(BUILD_PYTHON_MODULE "Build python module (PyTorch extension)" ON)
-option(WITH_CUDA "Build with CUDA support" ON)
-
-if(${WITH_CUDA})
-    set(PROJECT_LANGUAGE ${PROJECT_LANGUAGE} CUDA)
-endif()
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Build configure" FORCE)
 if(DEFINED CMAKE_BUILD_TYPE)

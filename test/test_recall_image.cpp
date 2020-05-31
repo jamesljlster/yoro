@@ -103,6 +103,7 @@ try
 }
 catch (exception& ex)
 {
+    cout << "Error occurred:" << endl;
     cout << ex.what() << endl;
     return -1;
 }

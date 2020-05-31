@@ -4,20 +4,12 @@ cmake_minimum_required(VERSION 3.17 FATAL_ERROR)
 set(PROJECT_NAME yoro_api)
 set(MODULE_NAME ${PROJECT_NAME}_pym)
 set(PROJECT_LANGUAGE CXX)
-if(${WITH_CUDA})
-    set(PROJECT_LANGUAGE ${PROJECT_LANGUAGE} CUDA)
-endif()
-
 set(PROJECT_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/yoro_api.hpp)
 
 # Compile setting
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O")
-
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} \
-    --compiler-options \"${CMAKE_CXX_FLAGS}\" --expt-relaxed-constexpr")
-set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS} -O3")
 
 # Set default build option
 if(NOT CMAKE_BUILD_TYPE)
@@ -36,12 +28,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # Set file list
 file(GLOB PROJECT_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
-file(GLOB CUDA_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/*.cu)
 file(GLOB MODULE_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/*.cxx)
-
-if(${WITH_CUDA})
-    set(PROJECT_SRCS ${PROJECT_SRCS} ${CUDA_SRCS})
-endif()
 
 # Build library
 add_library(${PROJECT_NAME} ${PROJECT_SRCS})
@@ -51,7 +38,10 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     PREFIX "lib"
     )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${TORCH_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}
+    PUBLIC ${OpenCV_LIBS}
+    PRIVATE ${TORCH_LIBRARIES}
+    )
 
 # Build PyTorch module
 add_library(${MODULE_NAME} SHARED ${MODULE_SRCS})

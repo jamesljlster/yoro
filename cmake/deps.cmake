@@ -5,13 +5,6 @@ set(OpenCV_STATIC OFF CACHE BOOL "Using OpenCV static linking library")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-# Find CUDAToolkit
-if(${WITH_CUDA})
-    find_package(CUDAToolkit REQUIRED)
-    include_directories(${CUDAToolkit_INCLUDE_DIRS})
-    link_directories(${CUDAToolkit_LIBRARY_DIR})
-endif()
-
 # Find PyTorch
 find_package(Torch REQUIRED)
 include_directories(${TORCH_INCLUDE_DIRS})

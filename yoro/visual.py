@@ -25,6 +25,9 @@ def rbox_draw(images, annos, to_tensor=False):
         # Draw rotated bounding box
         for inst in anno:
 
+            if inst.__class__.__name__ == 'RBox':
+                inst = inst.to_dict()
+
             # Get instance detail
             label = inst['label']
             x = inst['x']

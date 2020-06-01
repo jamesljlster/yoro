@@ -80,9 +80,9 @@ std::vector<RBox> Detector::Impl::detect(const cv::Mat& image, float confTh,
     Tensor predDeg = listRef[4].toTensor();
 
     // Denormalize
-    predBox *= scale;
-    predBox.index({"...", Slice(0, 2)}) -=
-        tensor({{{startX, startY}}}, this->device);
+    predBox.mul_(scale);
+    predBox.index({"...", Slice(0, 2)})
+        .sub_(tensor({{{startX, startY}}}, this->device));
 
     // Processing non-maximum suppression
     std::vector<std::vector<RBox>> nmsOut = yoro_api::non_maximum_suppression(

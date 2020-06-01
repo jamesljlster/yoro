@@ -15,12 +15,29 @@ using torch::jit::Object;
 
 namespace yoro_api
 {
-Detector::Impl::Impl(const char* modelPath)
+Detector::Impl::Impl(const char* modelPath, const Detector::DeviceType& devType)
 {
     // Detect devices and set tensor options
-    if (torch::cuda::is_available())
+    bool cudaAvail = torch::cuda::is_available();
+    switch (devType)
     {
-        this->device = torch::kCUDA;
+        case DeviceType::Auto:
+            this->device = cudaAvail ? torch::kCUDA : torch::kCPU;
+            break;
+
+        case DeviceType::CPU:
+            this->device = torch::kCPU;
+            break;
+
+        case DeviceType::CUDA:
+            this->device = torch::kCUDA;
+            break;
+    }
+
+    if ((this->device == torch::kCUDA) && (!cudaAvail))
+    {
+        throw std::runtime_error(
+            this->make_error_msg("CUDA device is unavailable."));
     }
 
     this->opt = this->opt.device(this->device).dtype(this->scalarType);

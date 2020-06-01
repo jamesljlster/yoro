@@ -14,8 +14,12 @@ namespace yoro_api
 class Detector::Impl
 {
    public:
-    explicit Impl(const char* modelPath);
-    explicit Impl(const std::string& modelPath) : Impl(modelPath.c_str()) {}
+    explicit Impl(const char* modelPath, const Detector::DeviceType& devType);
+    explicit Impl(const std::string& modelPath,
+                  const Detector::DeviceType& devType)
+        : Impl(modelPath.c_str(), devType)
+    {
+    }
 
     std::vector<RBox> detect(const cv::Mat& image, float confTh, float nmsTh);
 

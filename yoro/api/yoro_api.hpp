@@ -36,9 +36,18 @@ struct RBox
 class Detector
 {
    public:
-    explicit Detector(const char* modelPath);
-    explicit Detector(const std::string& modelPath)
-        : Detector(modelPath.c_str())
+    enum class DeviceType
+    {
+        Auto,
+        CPU,
+        CUDA
+    };
+
+    explicit Detector(const char* modelPath,
+                      const DeviceType& devType = DeviceType::Auto);
+    explicit Detector(const std::string& modelPath,
+                      const DeviceType& devType = DeviceType::Auto)
+        : Detector(modelPath.c_str(), devType)
     {
     }
 

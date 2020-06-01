@@ -10,12 +10,25 @@ try
     // Check arguments
     if (argc < 3)
     {
-        printf("Usage: %s <model_path> <test_image>\n", argv[0]);
+        printf("Usage: %s <model_path> <test_image> [device]\n", argv[0]);
         return -1;
     }
 
+    Detector::DeviceType devType = Detector::DeviceType::Auto;
+    if (argc > 3)
+    {
+        if (string(argv[3]) == "cpu")
+        {
+            devType = Detector::DeviceType::CPU;
+        }
+        else if (string(argv[3]) == "cuda")
+        {
+            devType = Detector::DeviceType::CUDA;
+        }
+    }
+
     // Import model and load image
-    Detector detector(argv[1]);
+    Detector detector(argv[1], devType);
     Mat image = imread(argv[2], IMREAD_COLOR);
 
     // Run detection

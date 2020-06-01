@@ -3,6 +3,7 @@ import cv2 as cv
 import numpy as np
 
 from yoro.visual import rbox_draw
+from yoro.api import non_maximum_suppression as nms
 
 netWidth = 224
 netHeight = 224
@@ -31,30 +32,22 @@ if __name__ == '__main__':
 
     # Predict
     inputs = (torch.FloatTensor(mat) / 255).unsqueeze(0)
-    (pred_conf, pred_class, pred_class_conf, pred_boxes, pred_deg) = model(inputs)
+    outputs = model(inputs)
+    (pred_conf, pred_class, pred_class_conf, pred_boxes, pred_deg) = outputs
 
-    predSize = pred_conf.size()
-    batch = predSize[0]
-    boxes = predSize[1]
+    # Denormalize
+    shift = torch.tensor([[[startX, startY]]],
+                         dtype=inputs.dtype, device=inputs.device)
+    pred_boxes.mul_(tarSize / netWidth)
+    pred_boxes[..., 0:2].sub_(shift)
 
-    scale = tarSize / netWidth
-    labels = []
-    for n in range(batch):
-        anno = []
-        for i in range(boxes):
-            if pred_conf[n, i] >= 0.9:
-                anno.append({
-                    'label': pred_class[n, i].item(),
-                    'degree': pred_deg[n, i].item(),
-                    'x': pred_boxes[n, i, 0].item() * scale - startX,
-                    'y': pred_boxes[n, i, 1].item() * scale - startY,
-                    'w': pred_boxes[n, i, 2].item() * scale,
-                    'h': pred_boxes[n, i, 3].item() * scale
-                })
+    # Apply non-maximum suppression
+    confTh = 0.9
+    nmsTh = 0.7
+    nmsOut = nms(outputs, confTh, nmsTh)
 
-        print(anno)
-        labels.append(anno)
-
-    result = rbox_draw([img], labels)
+    # Draw result
+    print(nmsOut)
+    result = rbox_draw([img], nmsOut)
     cv.imshow('result', result[0])
     cv.waitKey(0)

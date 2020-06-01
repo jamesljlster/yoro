@@ -11,6 +11,18 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def(py::init())
         .def(py::init<float, float, float, float, float, float, float>())
         .def("__repr__", &RBox::to_string)
+        .def("to_dict",
+             [](const RBox& rbox) -> py::dict {
+                 py::dict ret;
+                 ret["conf"] = rbox.conf;
+                 ret["label"] = rbox.label;
+                 ret["degree"] = rbox.degree;
+                 ret["x"] = rbox.x;
+                 ret["y"] = rbox.y;
+                 ret["w"] = rbox.w;
+                 ret["h"] = rbox.h;
+                 return ret;
+             })
         .def_readwrite("conf", &RBox::conf)
         .def_readwrite("label", &RBox::label)
         .def_readwrite("degree", &RBox::degree)

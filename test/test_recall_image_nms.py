@@ -3,6 +3,7 @@ import cv2 as cv
 import numpy as np
 
 from yoro.visual import rbox_draw
+from yoro.api import non_maximum_suppression as nms
 
 netWidth = 224
 netHeight = 224
@@ -31,7 +32,14 @@ if __name__ == '__main__':
 
     # Predict
     inputs = (torch.FloatTensor(mat) / 255).unsqueeze(0)
-    (pred_conf, pred_class, pred_class_conf, pred_boxes, pred_deg) = model(inputs)
+    outputs = model(inputs)
+    (pred_conf, pred_class, pred_class_conf, pred_boxes, pred_deg) = outputs
+
+    # Denormalize
+    shift = torch.tensor([[[-startX, -startY, 0, 0]]],
+                         dtype=inputs.dtype, device=inputs.device)
+    pred_boxes.mul_(tarSize / netWidth)
+    pred_boxes.add_(shift)
 
     # Future conversion for non-maximum suppression
     predSize = pred_conf.size()
@@ -97,7 +105,6 @@ if __name__ == '__main__':
 
     confTh = 0.9
     nmsTh = 0.7
-    scale = tarSize / netWidth
 
     batch = len(predList)
     nmsOut = [None] * batch
@@ -122,10 +129,10 @@ if __name__ == '__main__':
             inst.append({
                 'label': int(pred[rmIdx, 1][0].item()),
                 'degree': tmpInst[0],
-                'x': tmpInst[1] * scale - startX,
-                'y': tmpInst[2] * scale - startY,
-                'w': tmpInst[3] * scale,
-                'h': tmpInst[4] * scale
+                'x': tmpInst[1],
+                'y': tmpInst[2],
+                'w': tmpInst[3],
+                'h': tmpInst[4]
             })
 
             pred = pred[~rmIdx]
@@ -134,6 +141,7 @@ if __name__ == '__main__':
 
     # Draw result
     print(nmsOut)
+    print(nms(outputs, confTh, nmsTh))
     result = rbox_draw([img], nmsOut)
     cv.imshow('result', result[0])
     cv.waitKey(0)

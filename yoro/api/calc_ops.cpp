@@ -1,8 +1,11 @@
 #include "calc_ops.hpp"
 
+#define PROC_DTYPE torch::kFloat
+
 using namespace torch;
 using namespace torch::indexing;
 
+using std::tuple;
 using std::vector;
 
 namespace yoro_api
@@ -114,6 +117,40 @@ vector<vector<RBox>> non_maximum_suppression(  //
     }
 
     return nmsOut;
+}
+
+vector<vector<RBox>> non_maximum_suppression(  //
+    const Tensor& predConf, const Tensor& predClass,
+    const Tensor& predClassConf, const Tensor& predBox, const Tensor& predDeg,
+    float confTh, float nmsTh)
+{
+    // Concatenate tensor
+    Tensor pred = torch::cat({predConf.unsqueeze(-1).to(PROC_DTYPE),
+                              predClass.unsqueeze(-1).to(PROC_DTYPE),
+                              predClassConf.unsqueeze(-1).to(PROC_DTYPE),
+                              predDeg.unsqueeze(-1).to(PROC_DTYPE),
+                              predBox.to(PROC_DTYPE)},
+                             2)
+                      .to(torch::kCPU);
+
+    // Processing non-maximum suppression
+    return non_maximum_suppression(pred, confTh, nmsTh);
+}
+
+vector<vector<RBox>> non_maximum_suppression(
+    const tuple<Tensor, Tensor, Tensor, Tensor, Tensor>& outputs, float confTh,
+    float nmsTh)
+{
+    // Unpack tuple
+    Tensor predConf = std::get<0>(outputs);
+    Tensor predClass = std::get<1>(outputs);
+    Tensor predClassConf = std::get<2>(outputs);
+    Tensor predBox = std::get<3>(outputs);
+    Tensor predDeg = std::get<4>(outputs);
+
+    // Processing non-maximum suppression
+    return non_maximum_suppression(predConf, predClass, predClassConf, predBox,
+                                   predDeg, confTh, nmsTh);
 }
 
 }  // namespace yoro_api

@@ -46,6 +46,7 @@ target_link_libraries(${PROJECT_NAME}
 # Build PyTorch module
 add_library(${MODULE_NAME} SHARED ${MODULE_SRCS})
 set_target_properties(${MODULE_NAME} PROPERTIES
+    CXX_STANDARD 14
     OUTPUT_NAME ${MODULE_NAME}
     PREFIX ""
     )

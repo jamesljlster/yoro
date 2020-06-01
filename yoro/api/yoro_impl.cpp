@@ -84,17 +84,9 @@ std::vector<RBox> Detector::Impl::detect(const cv::Mat& image, float confTh,
     predBox.index({"...", Slice(0, 2)}) -=
         tensor({{{startX, startY}}}, this->device);
 
-    // Concatenate tensor
-    Tensor pred = torch::cat({predConf.unsqueeze(-1).to(torch::kFloat),
-                              predClass.unsqueeze(-1).to(torch::kFloat),
-                              predClassConf.unsqueeze(-1),
-                              predDeg.unsqueeze(-1), predBox},
-                             2)
-                      .to(torch::kCPU);
-
     // Processing non-maximum suppression
-    std::vector<std::vector<RBox>> nmsOut =
-        yoro_api::non_maximum_suppression(pred, confTh, nmsTh);
+    std::vector<std::vector<RBox>> nmsOut = yoro_api::non_maximum_suppression(
+        {predConf, predClass, predClassConf, predBox, predDeg}, confTh, nmsTh);
 
     return nmsOut[0];
 }

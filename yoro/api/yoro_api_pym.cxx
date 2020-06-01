@@ -1,5 +1,6 @@
 #include <torch/extension.h>
 
+#include "calc_ops.hpp"
 #include "yoro_api.hpp"
 
 using namespace yoro_api;
@@ -17,4 +18,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def_readwrite("y", &RBox::y)
         .def_readwrite("w", &RBox::w)
         .def_readwrite("h", &RBox::h);
+
+    m.def("non_maximum_suppression",
+          py::overload_cast<
+              const std::tuple<torch::Tensor, torch::Tensor, torch::Tensor,
+                               torch::Tensor, torch::Tensor>&,
+              float, float>(non_maximum_suppression));
 }

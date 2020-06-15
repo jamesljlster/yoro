@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.10)
 
 # Set variables
 set(PROJECT_NAME yoro_test)
@@ -17,7 +17,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 project(${PROJECT_NAME} ${PROJECT_LANGUAGE})
 
 # Set file list
-file(GLOB PROJECT_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+file(GLOB PROJECT_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
 # Build test
 foreach(TEST_FILE_PATH ${PROJECT_SRCS})

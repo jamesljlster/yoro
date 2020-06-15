@@ -1,9 +1,16 @@
 cmake_minimum_required(VERSION 3.17 FATAL_ERROR)
 
-# Set variables
+# Set library name
 set(PROJECT_NAME yoro_api)
 set(MODULE_NAME ${PROJECT_NAME}_pym)
+
+# Set programming language
 set(PROJECT_LANGUAGE CXX)
+
+# Set library version
+set(PROJECT_VERSION 0.1.0)
+
+# Set library public headers
 set(PROJECT_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/yoro_api.hpp)
 
 # Compile setting
@@ -17,11 +24,11 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(NOT BUILD_SHARED_LIBS)
-    set(BUILD_SHARED_LIBS OFF)
+    set(BUILD_SHARED_LIBS ON)
 endif()
 
 # Set project
-project(${PROJECT_NAME} ${PROJECT_LANGUAGE})
+project(${PROJECT_NAME} VERSION ${PROJECT_VERSION} LANGUAGES ${PROJECT_LANGUAGE})
 
 # Include directory
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -30,12 +37,31 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 file(GLOB PROJECT_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 file(GLOB MODULE_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/*.cxx)
 
+# Configure package install prefix
+set(BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin")
+set(LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/${PROJECT_NAME}")
+set(INC_DIR "${CMAKE_INSTALL_PREFIX}/include/${PROJECT_NAME}")
+set(EXPORT_DIR "${CMAKE_INSTALL_PREFIX}/lib/cmake/${PROJECT_NAME}")
+
+# Setup RPATH for shared library loading
+if(DEFINED CMAKE_INSTALL_RPATH AND ${BUILD_SHARED_LIBS})
+    if(NOT ${LIB_DIR} IN_LIST CMAKE_INSTALL_RPATH)
+        list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES ${LIB_DIR} isSystemDir)
+        if("${isSystemDir}" STREQUAL "-1")
+            list(APPEND CMAKE_INSTALL_RPATH ${LIB_DIR})
+            set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} CACHE INTERNAL
+                "RPATH for installation" FORCE)
+        endif()
+    endif()
+endif()
+
 # Build library
 add_library(${PROJECT_NAME} ${PROJECT_SRCS})
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 14
     OUTPUT_NAME ${PROJECT_NAME}
-    PREFIX "lib"
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
     )
 
 target_link_libraries(${PROJECT_NAME}
@@ -43,12 +69,13 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE ${TORCH_LIBRARIES}
     )
 
-# Build PyTorch module
+# Build python module
 add_library(${MODULE_NAME} SHARED ${MODULE_SRCS})
 set_target_properties(${MODULE_NAME} PROPERTIES
     CXX_STANDARD 14
     OUTPUT_NAME ${MODULE_NAME}
     PREFIX ""
+    INSTALL_RPATH ${LIB_DIR}
     )
 
 target_compile_definitions(${MODULE_NAME} PRIVATE
@@ -61,15 +88,38 @@ target_link_libraries(${MODULE_NAME} PRIVATE
     torch_python
     )
 
-# Install
-install(TARGETS ${PROJECT_NAME}
-    RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}/bin"
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_PREFIX}/lib"
-    LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}/lib"
-    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_PREFIX}/include"
-    )
-install(FILES ${PROJECT_HEADERS}
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/include"
+# Install library files
+set(LIB_TARGET ${PROJECT_NAME}-targets)
+install(EXPORT ${LIB_TARGET} DESTINATION ${EXPORT_DIR})
+
+install(TARGETS ${PROJECT_NAME} EXPORT ${LIB_TARGET}
+    RUNTIME DESTINATION ${BIN_DIR}
+    ARCHIVE DESTINATION ${LIB_DIR}
+    LIBRARY DESTINATION ${LIB_DIR}
+    PUBLIC_HEADER DESTINATION ${INC_DIR}
     )
 
+install(FILES ${PROJECT_HEADERS} DESTINATION ${INC_DIR})
+
+# Install python module
 install(TARGETS ${MODULE_NAME} DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}")
+
+# Export package configuration
+include(CMakePackageConfigHelpers)
+
+set(LIB_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake")
+set(LIB_VERSION_FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-version.cmake")
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.cmake.in" ${LIB_CONFIG_FILE}
+    INSTALL_DESTINATION ${EXPORT_DIR}
+    PATH_VARS INC_DIR LIB_DIR
+    )
+
+write_basic_package_version_file(
+    ${LIB_VERSION_FILE}
+    VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES ${LIB_CONFIG_FILE} ${LIB_VERSION_FILE} DESTINATION ${EXPORT_DIR})

@@ -28,16 +28,14 @@ endif()
 # Export compile commands (For some useful tools like YCM, Sourcetrail, ...)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
-# Setup RPATH settings for shared library loading
+# Initialize RPATH settings for shared library loading
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
-if("${isSystemDir}" STREQUAL "-1")
-    set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-endif("${isSystemDir}" STREQUAL "-1")
+if(NOT DEFINED CMAKE_INSTALL_RPATH)
+    set(CMAKE_INSTALL_RPATH "" CACHE INTERNAL "RPATH for installation")
+endif()
 
 # Library paths
 set(LIB_PATHS

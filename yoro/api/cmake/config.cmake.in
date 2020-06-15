@@ -1,0 +1,20 @@
+# === Find @PROJECT_NAME@ ===
+#
+# This will define the following variables:
+#
+#   @PROJECT_NAME@_FOUND        -- True if the system has the @PROJECT_NAME@ library
+#   @PROJECT_NAME@_INCLUDE_DIRS -- Location of header files
+#   @PROJECT_NAME@_LIBRARY_DIR  -- Location of library files
+#   @PROJECT_NAME@_LIBRARIES    -- Libraries to link against
+#
+# and the following imported targets:
+#
+#   @PROJECT_NAME@
+
+@PACKAGE_INIT@
+
+set(@PROJECT_NAME@_INCLUDE_DIRS "@PACKAGE_INC_DIR@")
+set(@PROJECT_NAME@_LIBRARY_DIR "@PACKAGE_LIB_DIR@")
+set(@PROJECT_NAME@_LIBRARIES @PROJECT_NAME@)
+
+include("${CMAKE_CURRENT_LIST_DIR}/@LIB_TARGET@.cmake")

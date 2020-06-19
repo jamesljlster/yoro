@@ -70,23 +70,25 @@ target_link_libraries(${PROJECT_NAME}
     )
 
 # Build python module
-add_library(${MODULE_NAME} SHARED ${MODULE_SRCS})
-set_target_properties(${MODULE_NAME} PROPERTIES
-    CXX_STANDARD 14
-    OUTPUT_NAME ${MODULE_NAME}
-    PREFIX ""
-    INSTALL_RPATH ${LIB_DIR}
-    )
+if(${BUILD_PYTHON_MODULE})
+    add_library(${MODULE_NAME} SHARED ${MODULE_SRCS})
+    set_target_properties(${MODULE_NAME} PROPERTIES
+        CXX_STANDARD 14
+        OUTPUT_NAME ${MODULE_NAME}
+        PREFIX ""
+        INSTALL_RPATH ${LIB_DIR}
+        )
 
-target_compile_definitions(${MODULE_NAME} PRIVATE
-    -DTORCH_EXTENSION_NAME=${MODULE_NAME}
-    -DTORCH_API_INCLUDE_EXTENSION_H
-    )
+    target_compile_definitions(${MODULE_NAME} PRIVATE
+        -DTORCH_EXTENSION_NAME=${MODULE_NAME}
+        -DTORCH_API_INCLUDE_EXTENSION_H
+        )
 
-target_link_libraries(${MODULE_NAME} PRIVATE
-    ${PROJECT_NAME}
-    torch_python
-    )
+    target_link_libraries(${MODULE_NAME} PRIVATE
+        ${PROJECT_NAME}
+        torch_python
+        )
+endif()
 
 # Install library files
 set(LIB_TARGET ${PROJECT_NAME}-targets)
@@ -102,7 +104,9 @@ install(TARGETS ${PROJECT_NAME} EXPORT ${LIB_TARGET}
 install(FILES ${PROJECT_HEADERS} DESTINATION ${INC_DIR})
 
 # Install python module
-install(TARGETS ${MODULE_NAME} DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}")
+if(${BUILD_PYTHON_MODULE})
+    install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
 
 # Export package configuration
 include(CMakePackageConfigHelpers)

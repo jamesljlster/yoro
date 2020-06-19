@@ -59,7 +59,7 @@ Tensor rbox_similarity(const Tensor& pred1, const Tensor& pred2)
     return ious * angSim;
 }
 
-vector<vector<RBox>> non_maximum_suppression(  //
+vector<vector<RBox>> non_maximum_suppression(
     const Tensor& predIn, float confTh, float nmsTh)
 {
     int batch = predIn.size(0);
@@ -100,14 +100,15 @@ vector<vector<RBox>> non_maximum_suppression(  //
                     .squeeze(0);
 
             auto data = rbox.accessor<float, 1>();
-            boxes.push_back(RBox(data[0] * data[2],  // Confidence
-                                 (int)data[1],       // Label
-                                 data[3],            // Degree
-                                 data[4],            // Center x
-                                 data[5],            // Center y
-                                 data[6],            // Width
-                                 data[7]             // Height
-                                 ));
+            boxes.push_back(RBox(
+                data[0] * data[2],  // Confidence
+                (int)data[1],       // Label
+                data[3],            // Degree
+                data[4],            // Center x
+                data[5],            // Center y
+                data[6],            // Width
+                data[7]             // Height
+                ));
 
             // Remove processed rbox
             pred = pred.index({logical_not(rmIdx)});
@@ -119,18 +120,23 @@ vector<vector<RBox>> non_maximum_suppression(  //
     return nmsOut;
 }
 
-vector<vector<RBox>> non_maximum_suppression(  //
-    const Tensor& predConf, const Tensor& predClass,
-    const Tensor& predClassConf, const Tensor& predBox, const Tensor& predDeg,
-    float confTh, float nmsTh)
+vector<vector<RBox>> non_maximum_suppression(
+    const Tensor& predConf,
+    const Tensor& predClass,
+    const Tensor& predClassConf,
+    const Tensor& predBox,
+    const Tensor& predDeg,
+    float confTh,
+    float nmsTh)
 {
     // Concatenate tensor
-    Tensor pred = torch::cat({predConf.unsqueeze(-1).to(PROC_DTYPE),
-                              predClass.unsqueeze(-1).to(PROC_DTYPE),
-                              predClassConf.unsqueeze(-1).to(PROC_DTYPE),
-                              predDeg.unsqueeze(-1).to(PROC_DTYPE),
-                              predBox.to(PROC_DTYPE)},
-                             2)
+    Tensor pred = torch::cat(
+                      {predConf.unsqueeze(-1).to(PROC_DTYPE),
+                       predClass.unsqueeze(-1).to(PROC_DTYPE),
+                       predClassConf.unsqueeze(-1).to(PROC_DTYPE),
+                       predDeg.unsqueeze(-1).to(PROC_DTYPE),
+                       predBox.to(PROC_DTYPE)},
+                      2)
                       .to(torch::kCPU);
 
     // Processing non-maximum suppression
@@ -138,7 +144,8 @@ vector<vector<RBox>> non_maximum_suppression(  //
 }
 
 vector<vector<RBox>> non_maximum_suppression(
-    const tuple<Tensor, Tensor, Tensor, Tensor, Tensor>& outputs, float confTh,
+    const tuple<Tensor, Tensor, Tensor, Tensor, Tensor>& outputs,
+    float confTh,
     float nmsTh)
 {
     // Unpack tuple
@@ -149,8 +156,8 @@ vector<vector<RBox>> non_maximum_suppression(
     Tensor predDeg = std::get<4>(outputs);
 
     // Processing non-maximum suppression
-    return non_maximum_suppression(predConf, predClass, predClassConf, predBox,
-                                   predDeg, confTh, nmsTh);
+    return non_maximum_suppression(
+        predConf, predClass, predClassConf, predBox, predDeg, confTh, nmsTh);
 }
 
 }  // namespace yoro_api

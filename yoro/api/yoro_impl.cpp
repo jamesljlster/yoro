@@ -53,8 +53,8 @@ Detector::Impl::Impl(const char* modelPath, const Detector::DeviceType& devType)
     model.eval();
 }
 
-std::vector<RBox> Detector::Impl::detect(const cv::Mat& image, float confTh,
-                                         float nmsTh)
+std::vector<RBox> Detector::Impl::detect(
+    const cv::Mat& image, float confTh, float nmsTh)
 {
     if (image.empty())
     {
@@ -68,8 +68,8 @@ std::vector<RBox> Detector::Impl::detect(const cv::Mat& image, float confTh,
     // Pad to square
     int tarSize = std::max(src.rows, src.cols);
     cv::Mat mat = cv::Mat(tarSize, tarSize, CV_8UC3, cv::Scalar(0, 0, 0));
-    cv::Rect roi = cv::Rect((tarSize - src.cols) / 2, (tarSize - src.rows) / 2,
-                            src.cols, src.rows);
+    cv::Rect roi = cv::Rect(
+        (tarSize - src.cols) / 2, (tarSize - src.rows) / 2, src.cols, src.rows);
     src.copyTo(mat(roi));
 
     float startX = (tarSize - src.cols) / 2;

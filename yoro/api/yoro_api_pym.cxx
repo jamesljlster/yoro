@@ -11,18 +11,19 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def(py::init())
         .def(py::init<float, float, float, float, float, float, float>())
         .def("__repr__", &RBox::to_string)
-        .def("to_dict",
-             [](const RBox& rbox) -> py::dict {
-                 py::dict ret;
-                 ret["conf"] = rbox.conf;
-                 ret["label"] = rbox.label;
-                 ret["degree"] = rbox.degree;
-                 ret["x"] = rbox.x;
-                 ret["y"] = rbox.y;
-                 ret["w"] = rbox.w;
-                 ret["h"] = rbox.h;
-                 return ret;
-             })
+        .def(
+            "to_dict",
+            [](const RBox& rbox) -> py::dict {
+                py::dict ret;
+                ret["conf"] = rbox.conf;
+                ret["label"] = rbox.label;
+                ret["degree"] = rbox.degree;
+                ret["x"] = rbox.x;
+                ret["y"] = rbox.y;
+                ret["w"] = rbox.w;
+                ret["h"] = rbox.h;
+                return ret;
+            })
         .def_readwrite("conf", &RBox::conf)
         .def_readwrite("label", &RBox::label)
         .def_readwrite("degree", &RBox::degree)
@@ -31,9 +32,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def_readwrite("w", &RBox::w)
         .def_readwrite("h", &RBox::h);
 
-    m.def("non_maximum_suppression",
-          py::overload_cast<
-              const std::tuple<torch::Tensor, torch::Tensor, torch::Tensor,
-                               torch::Tensor, torch::Tensor>&,
-              float, float>(non_maximum_suppression));
+    m.def(
+        "non_maximum_suppression",
+        py::overload_cast<
+            const std::tuple<
+                torch::Tensor,
+                torch::Tensor,
+                torch::Tensor,
+                torch::Tensor,
+                torch::Tensor>&,
+            float,
+            float>(non_maximum_suppression));
 }

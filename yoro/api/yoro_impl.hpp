@@ -15,8 +15,8 @@ class Detector::Impl
 {
    public:
     explicit Impl(const char* modelPath, const Detector::DeviceType& devType);
-    explicit Impl(const std::string& modelPath,
-                  const Detector::DeviceType& devType)
+    explicit Impl(
+        const std::string& modelPath, const Detector::DeviceType& devType)
         : Impl(modelPath.c_str(), devType)
     {
     }

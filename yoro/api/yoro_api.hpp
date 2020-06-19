@@ -13,8 +13,8 @@ struct RBox
 {
     /** Constructor */
     RBox() {}
-    RBox(float conf, int label, float degree, float x, float y, float w,
-         float h)
+    RBox(
+        float conf, int label, float degree, float x, float y, float w, float h)
         : conf(conf), label(label), degree(degree), x(x), y(y), w(w), h(h)
     {
     }
@@ -43,10 +43,11 @@ class Detector
         CUDA
     };
 
-    explicit Detector(const char* modelPath,
-                      const DeviceType& devType = DeviceType::Auto);
-    explicit Detector(const std::string& modelPath,
-                      const DeviceType& devType = DeviceType::Auto)
+    explicit Detector(
+        const char* modelPath, const DeviceType& devType = DeviceType::Auto);
+    explicit Detector(
+        const std::string& modelPath,
+        const DeviceType& devType = DeviceType::Auto)
         : Detector(modelPath.c_str(), devType)
     {
     }

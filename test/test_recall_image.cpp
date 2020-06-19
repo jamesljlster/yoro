@@ -46,8 +46,8 @@ try
     // Pad to square
     int tarSize = max(src.rows, src.cols);
     Mat mat = Mat(tarSize, tarSize, CV_8UC3, Scalar(0, 0, 0));
-    Rect roi = Rect((tarSize - src.cols) / 2, (tarSize - src.rows) / 2,
-                    src.cols, src.rows);
+    Rect roi = Rect(
+        (tarSize - src.cols) / 2, (tarSize - src.rows) / 2, src.cols, src.rows);
     src.copyTo(mat(roi));
 
     float startX = (tarSize - src.cols) / 2;
@@ -58,12 +58,13 @@ try
     resize(mat, mat, Size(netWidth, netHeight));
 
     // Convert image to tensor
-    Tensor inputs = from_blob(mat.ptr<char>(), {1, netHeight, netWidth, 3},
-                              ScalarType::Byte)
-                        .to(torch::kFloat)
-                        .permute({0, 3, 1, 2})
-                        .contiguous() /
-                    255.0;
+    Tensor inputs =
+        from_blob(
+            mat.ptr<char>(), {1, netHeight, netWidth, 3}, ScalarType::Byte)
+            .to(torch::kFloat)
+            .permute({0, 3, 1, 2})
+            .contiguous() /
+        255.0;
 
     // Forward
     auto outputs = model.forward({inputs}).toTuple();
@@ -79,11 +80,13 @@ try
     predBox.index({"...", Slice(0, 2)}) -= torch::tensor({{{startX, startY}}});
 
     // Concatenate tensor
-    Tensor pred = torch::cat({predConf.unsqueeze(-1).to(torch::kFloat),
-                              predClass.unsqueeze(-1).to(torch::kFloat),
-                              predClassConf.unsqueeze(-1),
-                              predDeg.unsqueeze(-1), predBox},
-                             2)
+    Tensor pred = torch::cat(
+                      {predConf.unsqueeze(-1).to(torch::kFloat),
+                       predClass.unsqueeze(-1).to(torch::kFloat),
+                       predClassConf.unsqueeze(-1),
+                       predDeg.unsqueeze(-1),
+                       predBox},
+                      2)
                       .to(torch::kCPU);
 
     // Processing non-maximum suppression

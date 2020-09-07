@@ -13,7 +13,7 @@ train_param:
   max_epoch: 1000
   esti_epoch: 100
   bak_epoch: 1000
-  batch: 16
+  batch: 32
   num_workers: 8
   optimizer:
     name: Adam

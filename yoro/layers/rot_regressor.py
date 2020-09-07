@@ -5,13 +5,15 @@ from torch.nn import functional as F
 
 class RotRegressor(Module):
 
-    def __init__(self, degMin, degMax):
+    __constants__ = ['base', 'scale']
+
+    def __init__(self, deg_min, deg_max):
 
         super(RotRegressor, self).__init__()
 
         # Save parameters
-        self.base = (degMax + degMin) / 2
-        self.scale = (degMax - degMin) / 2
+        self.base = (deg_max + deg_min) / 2
+        self.scale = (deg_max - deg_min) / 2
 
         # Loss layer
         self.regLoss = SmoothL1Loss()
@@ -22,12 +24,16 @@ class RotRegressor(Module):
     @torch.jit.unused
     def loss(self, inputs, targets):
 
+        device = inputs.device
+        dtype = inputs.dtype
+
         # Predict
         predict = self.forward(inputs)
 
         # Build target
-        targets = torch.FloatTensor(
-            [inst[0]['degree'] for inst in targets]).unsqueeze(-1)
+        targets = torch.tensor(
+            [inst[0]['degree'] for inst in targets],
+            dtype=dtype, device=device).unsqueeze(-1)
 
         # Find loss
         loss = self.regLoss(inputs, (targets - self.base) / self.scale)
@@ -38,7 +44,7 @@ class RotRegressor(Module):
         corr = (torch.sum(vP * vT) /
                 (torch.sqrt(torch.sum(vP ** 2)) * torch.sqrt(torch.sum(vT ** 2))))
 
-        return loss, {'corr': corr.item()}
+        return (loss, 1), {'corr': (corr.item(), 1)}
 
 
 if __name__ == '__main__':
@@ -48,7 +54,7 @@ if __name__ == '__main__':
     from yoro.transforms import Rot_ToTensor
     from torchvision.models import resnet18
 
-    rotReg = RotRegressor(degMin=-45, degMax=45)
+    rotReg = RotRegressor(deg_min=-45, deg_max=45)
 
     data = RBoxSample('~/dataset/PlateShelf_Mark_Test',
                       '~/dataset/PlateShelf_Mark_Test/data.names',

@@ -18,6 +18,7 @@ from ...transforms import \
 from ... import backbone
 from ...layers import YOROLayer
 from ..info_summarize import info_add, info_simplify, info_represent
+from ..object_loader import load_object
 
 
 class YOROTrain(object):
@@ -81,7 +82,7 @@ class YOROTrain(object):
 
         # Configure backbone
         cfgBBone = cfgCons['backbone']
-        self.bboneClass = backbone.__dict__[cfgBBone['name']]
+        self.bboneClass = load_object(cfgBBone['name'])
         self.bboneArgs = cfgBBone['args']
         self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
 

@@ -1,12 +1,12 @@
 from torch.nn import Module
 from torchvision.models import resnet
 
-__all__ = ['ResNet']
+__all__ = ['ResNet_FCN']
 
 
-class ResNet(Module):
+class ResNet_FCN(Module):
     def __init__(self, model_name, **kwargs):
-        super(ResNet, self).__init__()
+        super(ResNet_FCN, self).__init__()
         self.base = resnet.__dict__[model_name](**kwargs)
 
     def forward(self, x):

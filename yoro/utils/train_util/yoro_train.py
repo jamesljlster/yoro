@@ -15,7 +15,6 @@ from torchvision.transforms import Compose
 from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
     RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToSquare, RBox_ToTensor
-from ... import backbone
 from ...layers import YOROLayer
 from ..info_summarize import info_add, info_simplify, info_represent
 from ..object_loader import load_object

@@ -180,6 +180,10 @@ class BaseTrain(object):
         if path == None:
             bakFiles = \
                 [f for f in glob(join(self.bakDir, '*.sdict')) if isfile(f)]
+            if len(bakFiles) == 0:
+                print('No backup files were found for %s' % self.name)
+                return
+
             selBase = \
                 [int(splitext(basename(f))[0].split('_')[1]) for f in bakFiles]
             path = bakFiles[selBase.index(max(selBase))]

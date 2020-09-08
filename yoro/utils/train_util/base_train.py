@@ -16,7 +16,6 @@ from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
     Rot_ColorJitter, Rot_RandomAffine, Rot_Resize, Rot_ToTensor
 from ..info_summarize import info_add, info_simplify, info_represent
-from ..object_loader import load_object
 
 
 class BaseTrain(object):

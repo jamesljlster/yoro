@@ -1,14 +1,4 @@
-import yaml
-from tqdm.auto import tqdm
-from collections import OrderedDict
-
-from glob import glob
-from os import makedirs
-from os.path import join, exists, isdir, isfile, splitext, basename
-
-import torch
 from torch import optim
-from torch.nn import Sequential
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
@@ -16,7 +6,6 @@ from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
     Rot_ColorJitter, Rot_RandomAffine, Rot_Resize, Rot_ToTensor
 from ...layers import RotRegressor
-from ..info_summarize import info_add, info_simplify, info_represent
 from ..object_loader import load_object
 
 from .base_train import BaseTrain
@@ -90,12 +79,3 @@ class RotRegressorTrain(BaseTrain):
             [{'params': self.backbone.parameters()},
                 {'params': self.suffix.parameters()}],
             **cfgOptim['args'])
-
-
-if __name__ == '__main__':
-
-    tc = RotRegressorTrain('config/rotation_regressor.yaml')
-    tc.restore()
-    tc.valid()
-    tc.train()
-    tc.export_model()

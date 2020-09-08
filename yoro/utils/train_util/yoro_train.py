@@ -1,14 +1,5 @@
-import yaml
-from tqdm.auto import tqdm
-from collections import OrderedDict
-
-from glob import glob
-from os import makedirs
-from os.path import join, exists, isdir, isfile, splitext, basename
-
 import torch
 from torch import optim
-from torch.nn import Sequential
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
@@ -16,7 +7,6 @@ from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
     RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToSquare, RBox_ToTensor
 from ...layers import YOROLayer
-from ..info_summarize import info_add, info_simplify, info_represent
 from ..object_loader import load_object
 
 from .base_train import BaseTrain

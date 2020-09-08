@@ -93,7 +93,8 @@ class YOROTrain(object):
         out = self.backbone(src.to(self.dev))
         fmapSize = out.size()
 
-        self.yoroArgs = {
+        self.suffixClass = YOROLayer
+        self.suffixArgs = {
             'in_channels': fmapSize[1],
             'num_classes': trainSet.numClasses,
             'width': width,
@@ -106,13 +107,13 @@ class YOROTrain(object):
             'deg_part_size': cfgCons['deg_part_size']
         }
 
-        self.yoroLayer = YOROLayer(**self.yoroArgs).to(self.dev)
+        self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
 
         # Configure optimizer
         cfgOptim = cfgTParam['optimizer']
         self.optimizer = optim.__dict__[cfgOptim['name']](
             [{'params': self.backbone.parameters()},
-                {'params': self.yoroLayer.parameters()}],
+                {'params': self.suffix.parameters()}],
             **cfgOptim['args'])
 
         # Training setting
@@ -155,7 +156,7 @@ class YOROTrain(object):
 
                 # Training on mini-batch
                 out = self.backbone(inputs)
-                loss, info = self.yoroLayer.loss(out, targets)
+                loss, info = self.suffix.loss(out, targets)
                 loss[0].backward()
                 self.optimizer.step()
 
@@ -193,7 +194,7 @@ class YOROTrain(object):
 
         # Change to evaluate mode
         self.backbone.eval()
-        self.yoroLayer.eval()
+        self.suffix.eval()
 
         # Show message header
         print()
@@ -212,7 +213,7 @@ class YOROTrain(object):
 
             # Forward
             out = self.backbone(inputs)
-            loss, info = self.yoroLayer.loss(out, targets)
+            loss, info = self.suffix.loss(out, targets)
 
             # Accumulate informations
             runInfo = info_add(runInfo, info)
@@ -241,7 +242,7 @@ class YOROTrain(object):
             'epoch': self.epoch,
 
             'bbone_state_dict': self.backbone.state_dict(),
-            'yoro_state_dict': self.yoroLayer.state_dict(),
+            'suffix_state_dict': self.suffix.state_dict(),
             'optim_state_dict': self.optimizer.state_dict(),
 
             'trainLog': self.trainLog,
@@ -266,7 +267,7 @@ class YOROTrain(object):
         self.epoch = bak['epoch']
 
         self.backbone.load_state_dict(bak['bbone_state_dict'])
-        self.yoroLayer.load_state_dict(bak['yoro_state_dict'])
+        self.suffix.load_state_dict(bak['suffix_state_dict'])
         self.optimizer.load_state_dict(bak['optim_state_dict'])
 
         self.trainLog = bak['trainLog']
@@ -281,11 +282,11 @@ class YOROTrain(object):
         # Compose sequential model for torchscript
         model = torch.jit.script(Sequential(OrderedDict([
             ('backbone', self.bboneClass(**self.bboneArgs)),
-            ('yoroLayer', YOROLayer(**self.yoroArgs))
+            ('suffix', self.suffixClass(**self.suffixArgs))
         ])))
 
         model.backbone.load_state_dict(self.backbone.state_dict())
-        model.yoroLayer.load_state_dict(self.yoroLayer.state_dict())
+        model.suffix.load_state_dict(self.suffix.state_dict())
 
         # Save model
         print('Export model to:', path)
@@ -299,4 +300,4 @@ class YOROTrain(object):
 
         # Apply state dict
         self.backbone.load_state_dict(model.backbone.state_dict())
-        self.yoroLayer.load_state_dict(model.yoroLayer.state_dict())
+        self.suffix.load_state_dict(model.suffix.state_dict())

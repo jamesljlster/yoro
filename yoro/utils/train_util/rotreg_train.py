@@ -85,18 +85,19 @@ class RotRegressorTrain(object):
         self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
 
         # Configure rotation regressor
-        self.regArgs = {
+        self.suffixClass = RotRegressor
+        self.suffixArgs = {
             'deg_min': cfgCons['deg_min'],
             'deg_max': cfgCons['deg_max']
         }
 
-        self.regLayer = RotRegressor(**self.regArgs).to(self.dev)
+        self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
 
         # Configure optimizer
         cfgOptim = cfgTParam['optimizer']
         self.optimizer = optim.__dict__[cfgOptim['name']](
             [{'params': self.backbone.parameters()},
-                {'params': self.regLayer.parameters()}],
+                {'params': self.suffix.parameters()}],
             **cfgOptim['args'])
 
         # Training setting
@@ -139,7 +140,7 @@ class RotRegressorTrain(object):
 
                 # Training on mini-batch
                 out = self.backbone(inputs)
-                loss, info = self.regLayer.loss(out, targets)
+                loss, info = self.suffix.loss(out, targets)
                 loss[0].backward()
                 self.optimizer.step()
 
@@ -177,7 +178,7 @@ class RotRegressorTrain(object):
 
         # Change to evaluate mode
         self.backbone.eval()
-        self.regLayer.eval()
+        self.suffix.eval()
 
         # Show message header
         print()
@@ -196,7 +197,7 @@ class RotRegressorTrain(object):
 
             # Forward
             out = self.backbone(inputs)
-            loss, info = self.regLayer.loss(out, targets)
+            loss, info = self.suffix.loss(out, targets)
 
             # Accumulate informations
             runInfo = info_add(runInfo, info)
@@ -225,7 +226,7 @@ class RotRegressorTrain(object):
             'epoch': self.epoch,
 
             'bbone_state_dict': self.backbone.state_dict(),
-            'yoro_state_dict': self.regLayer.state_dict(),
+            'suffix_state_dict': self.suffix.state_dict(),
             'optim_state_dict': self.optimizer.state_dict(),
 
             'trainLog': self.trainLog,
@@ -250,7 +251,7 @@ class RotRegressorTrain(object):
         self.epoch = bak['epoch']
 
         self.backbone.load_state_dict(bak['bbone_state_dict'])
-        self.regLayer.load_state_dict(bak['yoro_state_dict'])
+        self.suffix.load_state_dict(bak['suffix_state_dict'])
         self.optimizer.load_state_dict(bak['optim_state_dict'])
 
         self.trainLog = bak['trainLog']
@@ -265,11 +266,11 @@ class RotRegressorTrain(object):
         # Compose sequential model for torchscript
         model = torch.jit.script(Sequential(OrderedDict([
             ('backbone', self.bboneClass(**self.bboneArgs)),
-            ('regLayer', RotRegressor(**self.regArgs))
+            ('suffix', self.suffixClass(**self.suffixArgs))
         ])))
 
         model.backbone.load_state_dict(self.backbone.state_dict())
-        model.regLayer.load_state_dict(self.regLayer.state_dict())
+        model.suffix.load_state_dict(self.suffix.state_dict())
 
         # Save model
         print('Export model to:', path)
@@ -283,7 +284,7 @@ class RotRegressorTrain(object):
 
         # Apply state dict
         self.backbone.load_state_dict(model.backbone.state_dict())
-        self.regLayer.load_state_dict(model.regLayer.state_dict())
+        self.suffix.load_state_dict(model.suffix.state_dict())
 
 
 if __name__ == '__main__':

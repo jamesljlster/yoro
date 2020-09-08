@@ -44,7 +44,7 @@ Detector::Impl::Impl(const char* modelPath, const Detector::DeviceType& devType)
 
     // Import model and settings
     this->model = torch::jit::load(modelPath);
-    Object yoroLayer = model.attr("yoroLayer").toObject();
+    Object yoroLayer = model.attr("suffix").toObject();
 
     this->netWidth = yoroLayer.attr("width").toInt();
     this->netHeight = yoroLayer.attr("height").toInt();

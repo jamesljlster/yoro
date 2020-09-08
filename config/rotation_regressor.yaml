@@ -10,14 +10,14 @@ construct:
     args: {num_classes: 1}
 
 train_param:
-  max_epoch: 1000
-  esti_epoch: 100
-  bak_epoch: 1000
-  batch: 32
+  max_epoch: 500
+  esti_epoch: 10
+  bak_epoch: 100
+  batch: 64
   num_workers: 8
   optimizer:
-    name: Adam
-    args: {}
+    name: SGD
+    args: {'lr': 0.0001, 'momentum': 0.9}
 
 dataset:
   names_file: ~/dataset/PlateShelf_Mark_Train/data.names

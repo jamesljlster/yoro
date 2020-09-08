@@ -265,7 +265,7 @@ class RotRegressorTrain(object):
         # Compose sequential model for torchscript
         model = torch.jit.script(Sequential(OrderedDict([
             ('backbone', self.bboneClass(**self.bboneArgs)),
-            ('regLayer', YOROLayer(**self.yoroArgs))
+            ('regLayer', RotRegressor(**self.regArgs))
         ])))
 
         model.backbone.load_state_dict(self.backbone.state_dict())
@@ -289,6 +289,7 @@ class RotRegressorTrain(object):
 if __name__ == '__main__':
 
     tc = RotRegressorTrain('config/rotation_regressor.yaml')
+    tc.restore()
     tc.valid()
     tc.train()
     tc.export_model()

@@ -129,9 +129,9 @@ class RotAnchor(Module):
         # Build target
         targets = torch.tensor(
             [inst[0]['degree'] for inst in targets],
-            dtype=dtype, device=device).unsqueeze(-1)
+            dtype=dtype, device=device)
 
-        degDiff = targets - self.degAnchor
+        degDiff = targets.unsqueeze(-1) - self.degAnchor
         degPartIdx = torch.argmin(torch.abs(degDiff), dim=1)
         degShiftValue = degDiff[degPartIdx] / self.degValueScale
 

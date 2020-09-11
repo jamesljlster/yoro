@@ -26,7 +26,7 @@ class RotRegressor(Module):
         self.scale = (deg_max - deg_min) / 2
 
     def forward(self, inputs):
-        return inputs * self.scale + self.base
+        return (inputs * self.scale + self.base).squeeze(-1)
 
     @torch.jit.unused
     def loss(self, inputs, targets):
@@ -40,10 +40,11 @@ class RotRegressor(Module):
         # Build target
         targets = torch.tensor(
             [inst[0]['degree'] for inst in targets],
-            dtype=dtype, device=device).unsqueeze(-1)
+            dtype=dtype, device=device)
 
         # Find loss
-        loss = F.mse_loss(inputs, (targets - self.base) / self.scale)
+        loss = F.mse_loss(
+            inputs, (targets.unsqueeze(-1) - self.base) / self.scale)
 
         # Find correlation coefficient
         corr = correlation_coefficient(predict, targets)
@@ -132,14 +133,15 @@ class RotAnchor(Module):
             dtype=dtype, device=device)
 
         degDiff = targets.unsqueeze(-1) - self.degAnchor
-        degPartIdx = torch.argmin(torch.abs(degDiff), dim=1)
-        degShiftValue = degDiff[degPartIdx] / self.degValueScale
+        degPartIdx = torch.argmin(torch.abs(degDiff), dim=1).unsqueeze(-1)
+        degShiftValue = torch.gather(degDiff, 1, degPartIdx)
 
         # Find loss
         degPartLoss = F.cross_entropy(
-            inputs[:, :self.degPartDepth], degPartIdx)
-        degShiftLoss = F.mse_loss(
-            inputs[:, self.degPartDepth:], degShiftValue)
+            inputs[:, :self.degPartDepth], degPartIdx.squeeze(-1))
+
+        degShiftLoss = F.mse_loss(torch.gather(
+            inputs[:, self.degPartDepth:], 1, degPartIdx), degShiftValue)
         loss = degPartLoss + degShiftLoss
 
         # Find correlation coefficient
@@ -158,7 +160,7 @@ if __name__ == '__main__':
     data = RBoxSample('~/dataset/PlateShelf_Mark_Test',
                       '~/dataset/PlateShelf_Mark_Test/data.names',
                       transform=Rot_ToTensor())
-    dataLoader = DataLoader(data, batch_size=12, collate_fn=rbox_collate_fn)
+    dataLoader = DataLoader(data, batch_size=8, collate_fn=rbox_collate_fn)
     dataIter = iter(dataLoader)
     inputs, targets = dataIter.next()
 
@@ -166,19 +168,25 @@ if __name__ == '__main__':
     rotDetect = RotRegressor(deg_min=-45, deg_max=45)
     net = resnet18(num_classes=1)
     out = net(inputs)
+    print(rotDetect(out))
     loss, info = rotDetect.loss(out, targets)
     print(loss, info)
+    print()
 
     # Test rotation classifier
     rotDetect = RotClassifier(deg_min=-45, deg_max=45, deg_step=1)
     net = resnet18(num_classes=91)
     out = net(inputs)
+    print(rotDetect(out))
     loss, info = rotDetect.loss(out, targets)
     print(loss, info)
+    print()
 
     # Test rotation anchor
     rotDetect = RotAnchor(deg_min=-45, deg_max=45, deg_part_size=10)
     net = resnet18(num_classes=20)
     out = net(inputs)
+    print(rotDetect(out))
     loss, info = rotDetect.loss(out, targets)
     print(loss, info)
+    print()

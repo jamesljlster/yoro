@@ -11,81 +11,11 @@ from ..object_loader import load_object
 from .base_train import BaseTrain
 
 
-class RotRegressorTrain(BaseTrain):
+class RotLayerTrain(BaseTrain):
 
-    def __init__(self, config_path):
+    def __init__(self, config_path, rot_module, rot_arg_lambda):
 
-        cfg = super(RotRegressorTrain, self).__init__(config_path)
-
-        # Get child config
-        cfgCons = cfg['construct']
-        cfgTParam = cfg['train_param']
-
-        # Configure data augmentation
-        tfPrefix = []
-        tfSuffix = [Rot_Resize((cfgCons['height'], cfgCons['width'])),
-                    Rot_ToTensor()]
-
-        cfgTf = cfg['transform']
-        tfContent = [
-            Rot_ColorJitter(
-                brightness=cfgTf['brightness'],
-                contrast=cfgTf['contrast'],
-                saturation=cfgTf['saturation'],
-                hue=cfgTf['hue']),
-            Rot_RandomAffine(
-                translate=cfgTf['translate'],
-                scale=cfgTf['scale'])
-        ]
-
-        tfTrain = Compose(tfPrefix + tfContent + tfSuffix)
-        tfValid = tfTrain if cfgTf['apply_on_valid'] \
-            else Compose(tfPrefix + tfSuffix)
-
-        # Configure dataset
-        cfgData = cfg['dataset']
-        trainSet = RBoxSample(
-            cfgData['train_dir'], cfgData['names_file'], transform=tfTrain)
-        validSet = RBoxSample(
-            cfgData['valid_dir'], cfgData['names_file'], transform=tfValid)
-
-        self.traLoader = DataLoader(
-            trainSet, shuffle=True, collate_fn=rbox_collate_fn,
-            batch_size=cfgTParam['batch'],
-            num_workers=cfgTParam['num_workers'])
-        self.tstLoader = DataLoader(
-            validSet, shuffle=False, collate_fn=rbox_collate_fn,
-            batch_size=cfgTParam['batch'],
-            num_workers=cfgTParam['num_workers'])
-
-        # Configure backbone
-        cfgBBone = cfgCons['backbone']
-        self.bboneClass = load_object(cfgBBone['name'])
-        self.bboneArgs = cfgBBone['args']
-        self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
-
-        # Configure rotation regressor
-        self.suffixClass = RotRegressor
-        self.suffixArgs = {
-            'deg_min': cfgCons['deg_min'],
-            'deg_max': cfgCons['deg_max']
-        }
-
-        self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
-
-        # Configure optimizer
-        cfgOptim = cfgTParam['optimizer']
-        self.optimizer = optim.__dict__[cfgOptim['name']](
-            [{'params': self.backbone.parameters()},
-                {'params': self.suffix.parameters()}],
-            **cfgOptim['args'])
-
-
-class RotClassifierTrain(BaseTrain):
-
-    def __init__(self, config_path):
-
-        cfg = super(RotClassifierTrain, self).__init__(config_path)
+        cfg = super(RotLayerTrain, self).__init__(config_path)
 
         # Get child config
         cfgCons = cfg['construct']
@@ -134,13 +64,9 @@ class RotClassifierTrain(BaseTrain):
         self.bboneArgs = cfgBBone['args']
         self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
 
-        # Configure rotation classifier
-        self.suffixClass = RotClassifier
-        self.suffixArgs = {
-            'deg_min': cfgCons['deg_min'],
-            'deg_max': cfgCons['deg_max'],
-            'deg_step': cfgCons['deg_step']
-        }
+        # Configure rotation layer
+        self.suffixClass = rot_module
+        self.suffixArgs = rot_arg_lambda(cfgCons)
 
         self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
 
@@ -152,72 +78,45 @@ class RotClassifierTrain(BaseTrain):
             **cfgOptim['args'])
 
 
-class RotAnchorTrain(BaseTrain):
+class RotRegressorTrain(RotLayerTrain):
 
     def __init__(self, config_path):
 
-        cfg = super(RotAnchorTrain, self).__init__(config_path)
+        super(RotRegressorTrain, self).__init__(
+            config_path,
+            RotRegressor,
+            lambda cfgCons: {
+                'deg_min': cfgCons['deg_min'],
+                'deg_max': cfgCons['deg_max']
+            }
+        )
 
-        # Get child config
-        cfgCons = cfg['construct']
-        cfgTParam = cfg['train_param']
 
-        # Configure data augmentation
-        tfPrefix = []
-        tfSuffix = [Rot_Resize((cfgCons['height'], cfgCons['width'])),
-                    Rot_ToTensor()]
+class RotClassifierTrain(RotLayerTrain):
 
-        cfgTf = cfg['transform']
-        tfContent = [
-            Rot_ColorJitter(
-                brightness=cfgTf['brightness'],
-                contrast=cfgTf['contrast'],
-                saturation=cfgTf['saturation'],
-                hue=cfgTf['hue']),
-            Rot_RandomAffine(
-                translate=cfgTf['translate'],
-                scale=cfgTf['scale'])
-        ]
+    def __init__(self, config_path):
 
-        tfTrain = Compose(tfPrefix + tfContent + tfSuffix)
-        tfValid = tfTrain if cfgTf['apply_on_valid'] \
-            else Compose(tfPrefix + tfSuffix)
+        super(RotClassifierTrain, self).__init__(
+            config_path,
+            RotClassifier,
+            lambda cfgCons: {
+                'deg_min': cfgCons['deg_min'],
+                'deg_max': cfgCons['deg_max'],
+                'deg_step': cfgCons['deg_step']
+            }
+        )
 
-        # Configure dataset
-        cfgData = cfg['dataset']
-        trainSet = RBoxSample(
-            cfgData['train_dir'], cfgData['names_file'], transform=tfTrain)
-        validSet = RBoxSample(
-            cfgData['valid_dir'], cfgData['names_file'], transform=tfValid)
 
-        self.traLoader = DataLoader(
-            trainSet, shuffle=True, collate_fn=rbox_collate_fn,
-            batch_size=cfgTParam['batch'],
-            num_workers=cfgTParam['num_workers'])
-        self.tstLoader = DataLoader(
-            validSet, shuffle=False, collate_fn=rbox_collate_fn,
-            batch_size=cfgTParam['batch'],
-            num_workers=cfgTParam['num_workers'])
+class RotAnchorTrain(RotLayerTrain):
 
-        # Configure backbone
-        cfgBBone = cfgCons['backbone']
-        self.bboneClass = load_object(cfgBBone['name'])
-        self.bboneArgs = cfgBBone['args']
-        self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
+    def __init__(self, config_path):
 
-        # Configure rotation anchor regressor
-        self.suffixClass = RotAnchor
-        self.suffixArgs = {
-            'deg_min': cfgCons['deg_min'],
-            'deg_max': cfgCons['deg_max'],
-            'deg_part_size': cfgCons['deg_part_size']
-        }
-
-        self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
-
-        # Configure optimizer
-        cfgOptim = cfgTParam['optimizer']
-        self.optimizer = optim.__dict__[cfgOptim['name']](
-            [{'params': self.backbone.parameters()},
-                {'params': self.suffix.parameters()}],
-            **cfgOptim['args'])
+        super(RotAnchorTrain, self).__init__(
+            config_path,
+            RotAnchor,
+            lambda cfgCons: {
+                'deg_min': cfgCons['deg_min'],
+                'deg_max': cfgCons['deg_max'],
+                'deg_part_size': cfgCons['deg_part_size']
+            }
+        )

@@ -151,8 +151,8 @@ class BaseTrain(object):
         # Logging
         if saveLog:
             self.validLog[self.epoch] = {
-                'loss': info_simplify(runInfo),
-                'info': info_simplify(runLoss)
+                'loss': info_simplify(runLoss),
+                'info': info_simplify(runInfo)
             }
 
     def backup(self):

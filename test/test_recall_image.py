@@ -1,3 +1,5 @@
+import sys
+
 import torch
 import cv2 as cv
 import numpy as np
@@ -10,12 +12,18 @@ netHeight = 224
 
 if __name__ == '__main__':
 
+    if len(sys.argv) < 3:
+        print('Usage: %s <model_path> <image_path>' % sys.argv[0])
+        exit()
+
+    modelPath = sys.argv[1]
+    imgPath = sys.argv[2]
+
     # Load model and image
-    model = torch.jit.load('coating_epoch_30000.zip')
+    model = torch.jit.load(modelPath)
     model.eval()
 
-    img = cv.imread(
-        './test/test_image/CamToolbox_20200121_154634.jpg', cv.IMREAD_COLOR)
+    img = cv.imread(imgPath, cv.IMREAD_COLOR)
 
     # Padding image to square
     height, width, channel = img.shape

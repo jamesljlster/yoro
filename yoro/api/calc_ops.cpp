@@ -65,6 +65,9 @@ vector<vector<RBox>> non_maximum_suppression(
     int batch = predIn.size(0);
     vector<vector<RBox>> nmsOut(batch, vector<RBox>());
 
+    // Detach tensor
+    predIn.detach_();
+
     // Processing NMS on mini-batch
     for (int n = 0; n < batch; n++)
     {

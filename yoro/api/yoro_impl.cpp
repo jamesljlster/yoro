@@ -50,7 +50,7 @@ Detector::Impl::Impl(const char* modelPath, const Detector::DeviceType& devType)
     this->netHeight = yoroLayer.attr("height").toInt();
 
     this->model.to(this->device, this->scalarType);
-    model.eval();
+    this->model.eval();
 }
 
 std::vector<RBox> Detector::Impl::detect(

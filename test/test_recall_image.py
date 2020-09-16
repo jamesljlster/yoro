@@ -7,9 +7,6 @@ import numpy as np
 from yoro.visual import rbox_draw
 from yoro.api import non_maximum_suppression as nms
 
-netWidth = 224
-netHeight = 224
-
 if __name__ == '__main__':
 
     if len(sys.argv) < 3:
@@ -21,6 +18,8 @@ if __name__ == '__main__':
 
     # Load model and image
     model = torch.jit.load(modelPath)
+    netWidth = model.suffix.width
+    netHeight = model.suffix.height
     model.eval()
 
     img = cv.imread(imgPath, cv.IMREAD_COLOR)

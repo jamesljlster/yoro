@@ -13,6 +13,11 @@ def correlation_coefficient(predict, targets):
     return corr
 
 
+def get_degrees(targets, dtype, device):
+    return torch.tensor([inst[0]['degree'] for inst in targets],
+                        dtype=dtype, device=device)
+
+
 class RotRegressor(Module):
 
     __constants__ = ['base', 'scale']
@@ -38,9 +43,7 @@ class RotRegressor(Module):
         predict = self.forward(inputs)
 
         # Build target
-        targets = torch.tensor(
-            [inst[0]['degree'] for inst in targets],
-            dtype=dtype, device=device)
+        targets = get_degrees(targets, dtype, device)
 
         # Find loss
         loss = F.mse_loss(
@@ -75,10 +78,9 @@ class RotClassifier(Module):
         predict = self.forward(inputs)
 
         # Build target
-        targets = torch.tensor(
-            [inst[0]['degree'] for inst in targets],
-            dtype=dtype, device=device).unsqueeze(-1)
-        targets = torch.argmin(torch.abs(targets - self.degs), dim=1)
+        targets = get_degrees(targets, dtype, device)
+        targets = torch.argmin(
+            torch.abs(targets.unsqueeze(-1) - self.degs), dim=1)
 
         # Find loss
         loss = F.cross_entropy(inputs, targets)
@@ -128,9 +130,7 @@ class RotAnchor(Module):
         predict = self.forward(inputs)
 
         # Build target
-        targets = torch.tensor(
-            [inst[0]['degree'] for inst in targets],
-            dtype=dtype, device=device)
+        targets = get_degrees(targets, dtype, device)
 
         degDiff = targets.unsqueeze(-1) - self.degAnchor
         degPartIdx = torch.argmin(torch.abs(degDiff), dim=1).unsqueeze(-1)

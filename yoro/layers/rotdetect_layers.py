@@ -134,7 +134,8 @@ class RotAnchor(Module):
 
         degDiff = targets.unsqueeze(-1) - self.degAnchor
         degPartIdx = torch.argmin(torch.abs(degDiff), dim=1).unsqueeze(-1)
-        degShiftValue = torch.gather(degDiff, 1, degPartIdx)
+        degShiftValue = torch.gather(
+            degDiff, 1, degPartIdx) / self.degValueScale
 
         # Find loss
         degPartLoss = F.cross_entropy(

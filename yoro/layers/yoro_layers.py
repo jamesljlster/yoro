@@ -48,7 +48,7 @@ class YOROLayer(Module):
         self.degPartSize = deg_part_size
         self.degValueScale = float(deg_part_size) / 2.0
         self.degAnchor = Parameter(torch.arange(
-            0, self.degRange+1, deg_part_size, dtype=torch.float) + deg_min,
+            start=deg_min, end=deg_max + deg_part_size, step=deg_part_size),
             requires_grad=False)
 
         self.degPartDepth = len(self.degAnchor)

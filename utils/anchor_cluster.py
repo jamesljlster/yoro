@@ -1,15 +1,12 @@
 import argparse
-import yaml
 import torch
 
-import numpy as np
-import multiprocessing as mt
-
 from random import shuffle
+
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
-from yoro.transforms import RBox_Resize, RBox_PadToSquare
 
+from yoro.transforms import RBox_Resize, RBox_PadToSquare
 from yoro.datasets import RBoxSample, rbox_collate_fn
 
 
@@ -102,5 +99,9 @@ if __name__ == '__main__':
         if avgMovDist <= stopMovDist:
             break
 
-    anchorInfo = {'anchor': anchor.view(numOfAnchor, 2).tolist()}
-    print(anchorInfo)
+    # Show result
+    anchorList = anchor.view(numOfAnchor, 2).tolist()
+    print()
+    print('anchor:')
+    for inst in anchorList:
+        print('  -', inst)

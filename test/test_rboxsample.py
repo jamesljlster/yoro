@@ -16,6 +16,11 @@ def imshow(img):
 if __name__ == '__main__':
 
     # Coating rbox image
+    data = RBoxSample('~/dataset/coating_test')
+    print('numClasses:', data.numClasses)
+    print('classNames:', data.classNames)
+    print()
+
     data = RBoxSample('~/dataset/coating_test',
                       '~/dataset/coating_test/coating.names')
     print('numClasses:', data.numClasses)
@@ -24,6 +29,7 @@ if __name__ == '__main__':
     for images, annos in dataLoader:
         images = make_grid(rbox_draw(images, annos, to_tensor=True), nrow=4)
         imshow(images.numpy().transpose(1, 2, 0))
+    print()
 
     # Coating rbox tensor
     data = RBoxSample('~/dataset/coating_test',

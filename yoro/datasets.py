@@ -26,19 +26,12 @@ def rbox_collate_fn(samples):
 
 class RBoxSample(Dataset):
 
-    def __init__(self, image_dir, names_file, transform=None):
-
-        if image_dir[0] == '~':
-            image_dir = expanduser(image_dir)
-        if names_file[0] == '~':
-            names_file = expanduser(names_file)
-
-        # Load names
-        self.classNames = yaml.load(
-            open(names_file, 'r'), Loader=yaml.FullLoader)
-        self.numClasses = len(self.classNames)
+    def __init__(self, image_dir, names_file=None, transform=None):
 
         # Load dataset
+        if image_dir[0] == '~':
+            image_dir = expanduser(image_dir)
+
         instList = []
         markFiles = [f for f in glob(join(image_dir, '*.mark')) if isfile(f)]
         for markFile in markFiles:
@@ -52,6 +45,30 @@ class RBoxSample(Dataset):
             inst['file'] = splitext(markFile)[0]
             inst['anno'] = anno
             instList.append(inst)
+
+        # Load names
+        if names_file:
+
+            # Load names from file
+            if names_file[0] == '~':
+                names_file = expanduser(names_file)
+
+            self.classNames = yaml.load(
+                open(names_file, 'r'), Loader=yaml.FullLoader)
+            self.numClasses = len(self.classNames)
+
+        else:
+
+            # Set names with labels
+            maxLabel = 0
+            for inst in instList:
+                for anno in inst['anno']:
+                    label = anno['label']
+                    if label > maxLabel:
+                        maxLabel = label
+
+            self.numClasses = maxLabel + 1
+            self.classNames = [str(label) for label in range(self.numClasses)]
 
         # Assignment
         self.instList = instList

@@ -41,7 +41,7 @@ class GeneralDetector
     std::string make_error_msg(const char* msg);
 };
 
-class Detector::Impl : public GeneralDetector
+class YORODetector::Impl : public GeneralDetector
 {
    public:
     explicit Impl(const char* modelPath, const DeviceType& devType)

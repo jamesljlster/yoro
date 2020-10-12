@@ -123,7 +123,7 @@ std::string GeneralDetector::make_error_msg(const char* msg)
     return std::string("[YORO API (Error)] ") + std::string(msg);
 }
 
-std::vector<RBox> Detector::Impl::detect(
+std::vector<RBox> YORODetector::Impl::detect(
     const cv::Mat& image, float confTh, float nmsTh)
 {
     int width = this->netWidth;

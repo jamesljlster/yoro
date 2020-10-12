@@ -6,12 +6,12 @@ using namespace std;
 
 namespace yoro_api
 {
-Detector::Detector(const char* modelPath, const DeviceType& devType)
+YORODetector::YORODetector(const char* modelPath, const DeviceType& devType)
 {
     this->impl = shared_ptr<Impl>(new Impl(modelPath, devType));
 }
 
-vector<RBox> Detector::detect(const Mat& image, float confTh, float nmsTh)
+vector<RBox> YORODetector::detect(const Mat& image, float confTh, float nmsTh)
 {
     return this->impl->detect(image, confTh, nmsTh);
 }

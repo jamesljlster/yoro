@@ -28,7 +28,7 @@ try
     }
 
     // Import model and load image
-    Detector detector(argv[1], devType);
+    YORODetector detector(argv[1], devType);
     Mat image = imread(argv[2], IMREAD_COLOR);
 
     // Run detection

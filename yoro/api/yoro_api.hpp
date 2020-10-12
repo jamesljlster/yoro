@@ -40,18 +40,17 @@ enum class DeviceType
     CUDA
 };
 
-class YORODetector;
 class RotationDetector;
 
-class Detector
+class YORODetector
 {
    public:
-    explicit Detector(
+    explicit YORODetector(
         const char* modelPath, const DeviceType& devType = DeviceType::Auto);
-    explicit Detector(
+    explicit YORODetector(
         const std::string& modelPath,
         const DeviceType& devType = DeviceType::Auto)
-        : Detector(modelPath.c_str(), devType)
+        : YORODetector(modelPath.c_str(), devType)
     {
     }
 

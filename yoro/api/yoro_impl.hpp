@@ -11,12 +11,41 @@
 
 namespace yoro_api
 {
+cv::Mat pad_to_aspect(
+    const cv::Mat& src,
+    float aspectRatio,
+    int* startXPtr = nullptr,
+    int* startYPtr = nullptr);
+
+class GeneralDetector
+{
+   public:
+    explicit GeneralDetector(const char* modelPath, const DeviceType& devType);
+    explicit GeneralDetector(
+        const std::string& modelPath, const DeviceType& devType)
+        : GeneralDetector(modelPath.c_str(), devType)
+    {
+    }
+
+    torch::jit::IValue detect(const cv::Mat& image);
+
+   protected:
+    torch::jit::Module model;
+    torch::DeviceType device = torch::kCPU;
+    torch::ScalarType scalarType = torch::kFloat;
+    torch::TensorOptions opt;
+
+    int netWidth;
+    int netHeight;
+
+    std::string make_error_msg(const char* msg);
+};
+
 class Detector::Impl
 {
    public:
-    explicit Impl(const char* modelPath, const Detector::DeviceType& devType);
-    explicit Impl(
-        const std::string& modelPath, const Detector::DeviceType& devType)
+    explicit Impl(const char* modelPath, const DeviceType& devType);
+    explicit Impl(const std::string& modelPath, const DeviceType& devType)
         : Impl(modelPath.c_str(), devType)
     {
     }

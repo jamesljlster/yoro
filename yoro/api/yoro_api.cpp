@@ -6,7 +6,7 @@ using namespace std;
 
 namespace yoro_api
 {
-Detector::Detector(const char* modelPath, const Detector::DeviceType& devType)
+Detector::Detector(const char* modelPath, const DeviceType& devType)
 {
     this->impl = shared_ptr<Impl>(new Impl(modelPath, devType));
 }

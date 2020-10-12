@@ -14,16 +14,16 @@ try
         return -1;
     }
 
-    Detector::DeviceType devType = Detector::DeviceType::Auto;
+    DeviceType devType = DeviceType::Auto;
     if (argc > 3)
     {
         if (string(argv[3]) == "cpu")
         {
-            devType = Detector::DeviceType::CPU;
+            devType = DeviceType::CPU;
         }
         else if (string(argv[3]) == "cuda")
         {
-            devType = Detector::DeviceType::CUDA;
+            devType = DeviceType::CUDA;
         }
     }
 

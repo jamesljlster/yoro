@@ -33,16 +33,19 @@ struct RBox
     float h = 0;       // Height
 };
 
+enum class DeviceType
+{
+    Auto,
+    CPU,
+    CUDA
+};
+
+class YORODetector;
+class RotationDetector;
+
 class Detector
 {
    public:
-    enum class DeviceType
-    {
-        Auto,
-        CPU,
-        CUDA
-    };
-
     explicit Detector(
         const char* modelPath, const DeviceType& devType = DeviceType::Auto);
     explicit Detector(

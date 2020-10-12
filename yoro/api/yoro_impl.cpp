@@ -155,4 +155,18 @@ std::vector<RBox> YORODetector::Impl::detect(
     return nmsOut[0];
 }
 
+float RotationDetector::Impl::detect(const cv::Mat& image)
+{
+    int width = this->netWidth;
+    int height = this->netHeight;
+
+    // Pad to aspect ratio
+    cv::Mat mat = pad_to_aspect(image, (float)width / height);
+
+    // Forward
+    Tensor outputs = GeneralDetector::detect(mat).toTensor();
+
+    return outputs.to(torch::kFloat32).item<float>();
+}
+
 }  // namespace yoro_api

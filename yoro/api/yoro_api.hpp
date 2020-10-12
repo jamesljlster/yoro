@@ -40,8 +40,6 @@ enum class DeviceType
     CUDA
 };
 
-class RotationDetector;
-
 class YORODetector
 {
    public:
@@ -55,6 +53,25 @@ class YORODetector
     }
 
     std::vector<RBox> detect(const cv::Mat& image, float confTh, float nmsTh);
+
+   protected:
+    class Impl;
+    std::shared_ptr<Impl> impl;
+};
+
+class RotationDetector
+{
+   public:
+    explicit RotationDetector(
+        const char* modelPath, const DeviceType& devType = DeviceType::Auto);
+    explicit RotationDetector(
+        const std::string& modelPath,
+        const DeviceType& devType = DeviceType::Auto)
+        : RotationDetector(modelPath.c_str(), devType)
+    {
+    }
+
+    float detect(const cv::Mat& image);
 
    protected:
     class Impl;

@@ -81,10 +81,10 @@ GeneralDetector::GeneralDetector(
 
     // Import model and settings
     this->model = torch::jit::load(modelPath);
-    Object yoroLayer = model.attr("suffix").toObject();
+    Object suffixLayer = model.attr("suffix").toObject();
 
-    this->netWidth = yoroLayer.attr("width").toInt();
-    this->netHeight = yoroLayer.attr("height").toInt();
+    this->netWidth = suffixLayer.attr("width").toInt();
+    this->netHeight = suffixLayer.attr("height").toInt();
 
     this->model.to(this->device, this->scalarType);
     this->model.eval();

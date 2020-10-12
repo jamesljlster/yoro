@@ -41,27 +41,20 @@ class GeneralDetector
     std::string make_error_msg(const char* msg);
 };
 
-class Detector::Impl
+class Detector::Impl : public GeneralDetector
 {
    public:
-    explicit Impl(const char* modelPath, const DeviceType& devType);
+    explicit Impl(const char* modelPath, const DeviceType& devType)
+        : GeneralDetector(modelPath, devType)
+    {
+    }
+
     explicit Impl(const std::string& modelPath, const DeviceType& devType)
-        : Impl(modelPath.c_str(), devType)
+        : GeneralDetector(modelPath, devType)
     {
     }
 
     std::vector<RBox> detect(const cv::Mat& image, float confTh, float nmsTh);
-
-   protected:
-    torch::jit::Module model;
-    torch::DeviceType device = torch::kCPU;
-    torch::ScalarType scalarType = torch::kFloat;
-    torch::TensorOptions opt;
-
-    int netWidth;
-    int netHeight;
-
-    std::string make_error_msg(const char* msg);
 };
 
 }  // namespace yoro_api

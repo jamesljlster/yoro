@@ -5,7 +5,7 @@ from torchvision.transforms import Compose
 
 from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
-    RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToSquare, RBox_ToTensor
+    RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToAspect, RBox_ToTensor
 from ...layers import YOROLayer
 from ..object_loader import load_object
 
@@ -22,9 +22,13 @@ class YOROTrain(BaseTrain):
         cfgCons = cfg['construct']
         cfgTParam = cfg['train_param']
 
+        # Get network input size
+        height = cfgCons['height']
+        width = cfgCons['width']
+
         # Configure data augmentation
-        tfPrefix = [RBox_PadToSquare()]
-        tfSuffix = [RBox_Resize((cfgCons['height'], cfgCons['width'])),
+        tfPrefix = [RBox_PadToAspect(float(width) / height)]
+        tfSuffix = [RBox_Resize((height, width)),
                     RBox_ToTensor()]
 
         cfgTf = cfg['transform']
@@ -67,9 +71,6 @@ class YOROTrain(BaseTrain):
         self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
 
         # Configure yoro layer
-        height = cfgCons['height']
-        width = cfgCons['width']
-
         src = torch.randn(1, 3, height, width)
         out = self.backbone(src.to(self.dev))
         fmapSize = out.size()

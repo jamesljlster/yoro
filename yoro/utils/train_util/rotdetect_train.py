@@ -4,7 +4,7 @@ from torchvision.transforms import Compose
 
 from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
-    Rot_ColorJitter, Rot_RandomAffine, Rot_Resize, Rot_ToTensor
+    Rot_ColorJitter, Rot_RandomAffine, Rot_Resize, Rot_ToTensor, Rot_PadToAspect
 from ...layers import RotRegressor, RotClassifier, RotAnchor
 from ..object_loader import load_object
 
@@ -21,9 +21,13 @@ class RotLayerTrain(BaseTrain):
         cfgCons = cfg['construct']
         cfgTParam = cfg['train_param']
 
+        # Get network input size
+        height = cfgCons['height']
+        width = cfgCons['width']
+
         # Configure data augmentation
-        tfPrefix = []
-        tfSuffix = [Rot_Resize((cfgCons['height'], cfgCons['width'])),
+        tfPrefix = [Rot_PadToAspect(float(width) / height)]
+        tfSuffix = [Rot_Resize((height, width)),
                     Rot_ToTensor()]
 
         cfgTf = cfg['transform']
@@ -67,8 +71,8 @@ class RotLayerTrain(BaseTrain):
         # Configure rotation layer
         self.suffixClass = rot_module
         self.suffixArgs = {
-            'width': cfgCons['width'],
-            'height': cfgCons['height'],
+            'width': width,
+            'height': height,
             **rot_arg_lambda(cfgCons)
         }
 

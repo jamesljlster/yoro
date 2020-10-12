@@ -20,13 +20,16 @@ def get_degrees(targets, dtype, device):
 
 class RotRegressor(Module):
 
-    __constants__ = ['base', 'scale']
+    __constants__ = ['width', 'height', 'base', 'scale']
 
-    def __init__(self, deg_min, deg_max):
+    def __init__(self, width: int, height: int, deg_min, deg_max):
 
         super(RotRegressor, self).__init__()
 
         # Save parameters
+        self.width = width
+        self.height = height
+
         self.base = (deg_max + deg_min) / 2
         self.scale = (deg_max - deg_min) / 2
 
@@ -57,11 +60,16 @@ class RotRegressor(Module):
 
 class RotClassifier(Module):
 
-    def __init__(self, deg_min, deg_max, deg_step=1):
+    __constants__ = ['width', 'height']
+
+    def __init__(self, width: int, height: int, deg_min, deg_max, deg_step=1):
 
         super(RotClassifier, self).__init__()
 
         # Save parameters
+        self.width = width
+        self.height = height
+
         self.degs = Parameter(torch.arange(
             start=deg_min, end=deg_max + deg_step, step=deg_step), requires_grad=False)
 
@@ -94,11 +102,16 @@ class RotClassifier(Module):
 
 class RotAnchor(Module):
 
-    def __init__(self, deg_min, deg_max, deg_part_size):
+    __constants__ = ['width', 'height']
+
+    def __init__(self, width: int, height: int, deg_min, deg_max, deg_part_size):
 
         super(RotAnchor, self).__init__()
 
         # Save parameters
+        self.width = width
+        self.height = height
+
         self.degMin = deg_min
         self.degMax = deg_max
         self.degRange = deg_max - deg_min

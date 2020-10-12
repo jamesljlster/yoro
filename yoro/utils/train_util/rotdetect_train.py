@@ -66,7 +66,11 @@ class RotLayerTrain(BaseTrain):
 
         # Configure rotation layer
         self.suffixClass = rot_module
-        self.suffixArgs = rot_arg_lambda(cfgCons)
+        self.suffixArgs = {
+            'width': cfgCons['width'],
+            'height': cfgCons['height'],
+            **rot_arg_lambda(cfgCons)
+        }
 
         self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
 

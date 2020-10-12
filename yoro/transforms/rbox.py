@@ -128,6 +128,47 @@ class RBox_Resize(object):
         return (image, newAnno)
 
 
+class RBox_PadToAspect(object):
+
+    def __init__(self, aspectRatio, fill=0, padding_mode='constant'):
+        self.aspectRatio = aspectRatio
+        self.fill = fill
+        self.padding_mode = padding_mode
+
+    def __call__(self, sample):
+
+        image, anno = sample
+
+        width, height = image.size
+        imSize = np.array([width, height])
+        cand1 = np.array([width, int(round(width / self.aspectRatio))])
+        cand2 = np.array([int(round(height * self.aspectRatio)), height])
+        tarSize = cand1 if ((cand1 - imSize) < 0).sum() == 0 else cand2
+
+        wPad = float(tarSize[0] - width) / 2.0
+        hPad = float(tarSize[1] - height) / 2.0
+
+        lPad = int(np.floor(wPad))
+        rPad = int(np.ceil(wPad))
+        tPad = int(np.floor(hPad))
+        bPad = int(np.ceil(hPad))
+
+        newAnno = []
+        for i in range(len(anno)):
+
+            tmpAnno = anno[i].copy()
+
+            tmpAnno['x'] += lPad
+            tmpAnno['y'] += tPad
+
+            newAnno.append(tmpAnno)
+
+        image = F.pad(image, (lPad, tPad, rPad, bPad),
+                      fill=self.fill, padding_mode=self.padding_mode)
+
+        return (image, newAnno)
+
+
 class RBox_PadToSquare(object):
 
     def __init__(self, fill=0, padding_mode='constant'):

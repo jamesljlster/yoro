@@ -128,6 +128,25 @@ class RBox_Resize(object):
         return (image, newAnno)
 
 
+def pad_to_aspect_param(imgSize, aspectRatio):
+
+    width, height = imgSize
+    imSize = np.array([width, height])
+    cand1 = np.array([width, int(round(width / aspectRatio))])
+    cand2 = np.array([int(round(height * aspectRatio)), height])
+    tarSize = cand1 if ((cand1 - imSize) < 0).sum() == 0 else cand2
+
+    wPad = float(tarSize[0] - width) / 2.0
+    hPad = float(tarSize[1] - height) / 2.0
+
+    lPad = int(np.floor(wPad))
+    rPad = int(np.ceil(wPad))
+    tPad = int(np.floor(hPad))
+    bPad = int(np.ceil(hPad))
+
+    return (lPad, tPad, rPad, bPad)
+
+
 class RBox_PadToAspect(object):
 
     def __init__(self, aspectRatio, fill=0, padding_mode='constant'):
@@ -138,20 +157,8 @@ class RBox_PadToAspect(object):
     def __call__(self, sample):
 
         image, anno = sample
-
-        width, height = image.size
-        imSize = np.array([width, height])
-        cand1 = np.array([width, int(round(width / self.aspectRatio))])
-        cand2 = np.array([int(round(height * self.aspectRatio)), height])
-        tarSize = cand1 if ((cand1 - imSize) < 0).sum() == 0 else cand2
-
-        wPad = float(tarSize[0] - width) / 2.0
-        hPad = float(tarSize[1] - height) / 2.0
-
-        lPad = int(np.floor(wPad))
-        rPad = int(np.ceil(wPad))
-        tPad = int(np.floor(hPad))
-        bPad = int(np.ceil(hPad))
+        (lPad, tPad, rPad, bPad) = pad_to_aspect_param(
+            image.size, self.aspectRatio)
 
         newAnno = []
         for i in range(len(anno)):

@@ -2,6 +2,8 @@ import torch
 from torch.nn import Module, Parameter, Conv2d
 from torch.nn import functional as F
 
+from .functional import correlation_coefficient
+
 
 class YOROLayer(Module):
 
@@ -274,23 +276,28 @@ class YOROLayer(Module):
         nobjConf = conf[nobjMask].mean().item()
 
         clsAccu = 0
-        degPartAccu = 0
+        degCorr = 0
         if objs:
 
             # Class accuracy
             clsAccu = (torch.argmax(
                 cls[n, acrIdx, yIdx, xIdx], dim=1) == clsT).sum().float().item()
 
-            # Degree partitioin accuracy
-            degPartAccu = (torch.argmax(
-                degPart[n, acrIdx, yIdx, xIdx], dim=1) == degPartT).sum().float().item()
+            # Degree correlation coefficient
+            degTarget = \
+                self.degAnchor[degPartT] + degShiftT * self.degValueScale
+            degIdx = torch.argmax(degPart[n, acrIdx, yIdx, xIdx], dim=1)
+            degPredict = (self.degAnchor[degIdx] +
+                          degShift[n, acrIdx, yIdx, xIdx, degIdx] *
+                          self.degValueScale)
+            degCorr = correlation_coefficient(degTarget, degPredict)
 
         # Summarize accuracy
         info = {
             'obj': (objConf, 1),
             'nobj': (nobjConf, 1),
             'cls': (clsAccu, objs),
-            'deg': (degPartAccu, objs)
+            'deg': (degCorr, 1)
         }
 
         return loss, info

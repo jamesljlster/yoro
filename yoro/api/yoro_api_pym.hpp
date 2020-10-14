@@ -89,7 +89,10 @@ struct type_caster<cv::Mat>
         std::vector<ssize_t> shape;
         shape.push_back(src.rows);
         shape.push_back(src.cols);
-        shape.push_back(src.channels());
+        if (src.channels() > 1)
+        {
+            shape.push_back(src.channels());
+        }
 
         return py::array(dtype, shape, src.ptr()).release();
     }

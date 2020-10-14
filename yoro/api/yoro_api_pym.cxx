@@ -1,9 +1,21 @@
-#include <torch/extension.h>
 
+#include "yoro_api_pym.hpp"
 #include "calc_ops.hpp"
 #include "yoro_api.hpp"
 
 using namespace yoro_api;
+
+int cv_imshow(const cv::Mat& src, int ms)
+{
+    cv::imshow("Window", src);
+    int ret = cv::waitKey(ms);
+    return ret;
+}
+
+cv::Mat cv_imread(const std::string& path)
+{
+    return cv::imread(path, cv::IMREAD_COLOR);
+}
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 {
@@ -43,4 +55,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
                 torch::Tensor>&,
             float,
             float>(non_maximum_suppression));
+
+    m.def("cv_imshow", &cv_imshow);
+    // m.def("cv_imread", &cv_imread);
 }

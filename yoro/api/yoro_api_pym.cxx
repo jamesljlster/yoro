@@ -32,6 +32,22 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def_readwrite("w", &RBox::w)
         .def_readwrite("h", &RBox::h);
 
+    py::enum_<DeviceType>(m, "DeviceType")
+        .value("Auto", DeviceType::Auto)
+        .value("CPU", DeviceType::CPU)
+        .value("CUDA", DeviceType::CUDA)
+        .export_values();
+
+    py::class_<YORODetector>(m, "YORODetector")
+        .def(py::init<const std::string&, const DeviceType&>())
+        .def(py::init<const std::string&>())
+        .def("detect", &YORODetector::detect);
+
+    py::class_<RotationDetector>(m, "RotationDetector")
+        .def(py::init<const std::string&, const DeviceType&>())
+        .def(py::init<const std::string&>())
+        .def("detect", &RotationDetector::detect);
+
     m.def(
         "non_maximum_suppression",
         py::overload_cast<

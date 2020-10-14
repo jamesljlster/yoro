@@ -61,6 +61,38 @@ struct type_caster<cv::Mat>
 
         return true;
     }
+
+    static py::handle cast(const cv::Mat& src, return_value_policy, handle)
+    {
+        // Find numpy array type corresponding to given opencv mat
+        int depth = src.depth();
+
+        py::dtype dtype;
+        if (depth == CV_8U)
+            dtype = py::dtype::of<unsigned char>();
+        else if (depth == CV_8S)
+            dtype = py::dtype::of<signed char>();
+        else if (depth == CV_16U)
+            dtype = py::dtype::of<unsigned short>();
+        else if (depth == CV_16S)
+            dtype = py::dtype::of<signed short>();
+        else if (depth == CV_32S)
+            dtype = py::dtype::of<int>();
+        else if (depth == CV_32F)
+            dtype = py::dtype::of<float>();
+        else if (depth == CV_64F)
+            dtype = py::dtype::of<double>();
+        else
+            return py::none();
+
+        // Construct python buffer
+        std::vector<ssize_t> shape;
+        shape.push_back(src.rows);
+        shape.push_back(src.cols);
+        shape.push_back(src.channels());
+
+        return py::array(dtype, shape, src.ptr()).release();
+    }
 };
 
 }  // namespace detail

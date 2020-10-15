@@ -1,3 +1,6 @@
+import torch
+import cv2
+
 try:
     from .yoro_api_pym import *
 except:

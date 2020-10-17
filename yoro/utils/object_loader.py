@@ -1,6 +1,9 @@
 from pydoc import locate
 
 
+__all__ = ['load_object']
+
+
 def load_object(modPath):
     mod = locate(modPath)
     if mod is None:

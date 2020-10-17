@@ -1,6 +1,7 @@
 from torch.nn import Module
 from torchvision.models import resnet
 
+
 __all__ = ['ResNet_FCN']
 
 

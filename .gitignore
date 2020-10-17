@@ -3,6 +3,11 @@ build
 CMakeCache.txt
 CMakeFiles
 
+# Installed files
+yoro/bin
+yoro/include
+yoro/lib
+
 # Temp file
 *.swp
 

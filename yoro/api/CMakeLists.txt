@@ -43,18 +43,6 @@ set(LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib/${PROJECT_NAME}")
 set(INC_DIR "${CMAKE_INSTALL_PREFIX}/include/${PROJECT_NAME}")
 set(EXPORT_DIR "${CMAKE_INSTALL_PREFIX}/lib/cmake/${PROJECT_NAME}")
 
-# Setup RPATH for shared library loading
-if((DEFINED CMAKE_INSTALL_RPATH) AND (${BUILD_SHARED_LIBS}))
-    if(NOT ${LIB_DIR} IN_LIST CMAKE_INSTALL_RPATH)
-        list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES ${LIB_DIR} isSystemDir)
-        if("${isSystemDir}" STREQUAL "-1")
-            list(APPEND CMAKE_INSTALL_RPATH ${LIB_DIR})
-            set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} CACHE INTERNAL
-                "RPATH for installation" FORCE)
-        endif()
-    endif()
-endif()
-
 # Build library
 add_library(${PROJECT_NAME} ${PROJECT_SRCS})
 set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -70,13 +58,14 @@ target_link_libraries(${PROJECT_NAME}
     )
 
 # Build python module
+file(RELATIVE_PATH PYM_INSTALL_RPATH ${CMAKE_CURRENT_SOURCE_DIR} ${LIB_DIR})
 if(${BUILD_PYTHON_MODULE})
     add_library(${MODULE_NAME} SHARED ${MODULE_SRCS})
     set_target_properties(${MODULE_NAME} PROPERTIES
         CXX_STANDARD 14
         OUTPUT_NAME ${MODULE_NAME}
         PREFIX ""
-        INSTALL_RPATH ${LIB_DIR}
+        INSTALL_RPATH "${CMAKE_RPATH_PREFIX}/${PYM_INSTALL_RPATH}"
         )
 
     target_compile_definitions(${MODULE_NAME} PRIVATE

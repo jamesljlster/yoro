@@ -10,7 +10,7 @@ find_package(Torch REQUIRED)
 include_directories(${TORCH_INCLUDE_DIRS})
 
 # Find Python
-find_package(Python REQUIRED COMPONENTS Development)
+find_package(Python REQUIRED COMPONENTS Interpreter Development)
 include_directories(${Python_INCLUDE_DIRS})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)

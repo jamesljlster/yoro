@@ -1,3 +1,5 @@
+#!@Python_EXECUTABLE@
+
 import argparse
 from yoro.utils.train_util import \
     YOROTrain, RotAnchorTrain, RotClassifierTrain, RotRegressorTrain

@@ -1,3 +1,5 @@
+#!@Python_EXECUTABLE@
+
 import argparse
 import torch
 

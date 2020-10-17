@@ -41,7 +41,7 @@ set(LIB_PATHS
 
 # Utility paths
 set(UTIL_PATHS
-    #"${CMAKE_CURRENT_SOURCE_DIR}/util/demo_util"
+    "${CMAKE_CURRENT_SOURCE_DIR}/utils"
     )
 
 if(${BUILD_TEST})

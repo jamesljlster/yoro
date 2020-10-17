@@ -18,7 +18,7 @@ class CMakeBuild(object):
 
         # Find source and build path
         srcDir = abspath(source)
-        buildDir = join(srcDir, 'build')
+        buildDir = join(srcDir, 'py_build')
 
         # Convert cmake args
         args = [
@@ -88,10 +88,14 @@ if __name__ == '__main__':
         package_data={
             'yoro': [
                 'api/*.so',
-                'bin/*',
                 'include/yoro_api/*',
                 'lib/cmake/yoro_api/*',
                 'lib/yoro_api/*'
             ]
-        }
+        },
+        scripts=[
+            'yoro/bin/anchor_cluster',
+            'yoro/bin/recaller',
+            'yoro/bin/trainer'
+        ]
     )

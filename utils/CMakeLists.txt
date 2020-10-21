@@ -19,6 +19,6 @@ foreach(PY_FILE ${PY_SRCS})
     configure_file(${PY_FILE} "${PY_UTIL}" @ONLY)
 
     # Install utility
-    install(FILES ${PY_UTIL} DESTINATION "${CMAKE_INSTALL_PREFIX}/bin")
+    install(FILES ${PY_UTIL} DESTINATION "bin")
 
 endforeach()

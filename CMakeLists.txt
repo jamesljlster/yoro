@@ -12,7 +12,10 @@ set(PROJECT_NAME YORO)
 set(PROJECT_LANGUAGE CXX)
 
 # Environment variables
-set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/yoro" CACHE PATH "Installation directory")
+file(RELATIVE_PATH REL_INSTALL_PREFIX
+    "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/yoro"
+    )
+set(CMAKE_INSTALL_PREFIX "${REL_INSTALL_PREFIX}" CACHE PATH "Installation directory")
 option(BUILD_TEST "Enable building test" OFF)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 option(BUILD_PYTHON_MODULE "Build python module (PyTorch extension)" ON)

@@ -95,6 +95,7 @@ if __name__ == '__main__':
         },
         scripts=[
             'yoro/bin/anchor_cluster',
+            'yoro/bin/backup_exporter',
             'yoro/bin/recaller',
             'yoro/bin/trainer'
         ]

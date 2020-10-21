@@ -58,7 +58,8 @@ target_link_libraries(${PROJECT_NAME}
     )
 
 # Build python module
-file(RELATIVE_PATH PYM_INSTALL_RPATH ${CMAKE_CURRENT_SOURCE_DIR} ${LIB_DIR})
+get_filename_component(LIB_PATH ${LIB_DIR} ABSOLUTE)
+file(RELATIVE_PATH PYM_INSTALL_RPATH ${CMAKE_CURRENT_SOURCE_DIR} ${LIB_PATH})
 if(${BUILD_PYTHON_MODULE})
     add_library(${MODULE_NAME} SHARED ${MODULE_SRCS})
     set_target_properties(${MODULE_NAME} PROPERTIES

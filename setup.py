@@ -1,14 +1,15 @@
 import sys
 import distutils.sysconfig
 
+from importlib import import_module
+
 import os
 from os import makedirs, environ
 from os.path import abspath, exists, join
 
+import subprocess
 from subprocess import check_call
 from setuptools import setup, find_packages
-
-import torch
 
 
 class CMakeBuild(object):
@@ -55,7 +56,12 @@ class CMakeBuild(object):
         ], cwd=buildDir)
 
 
-if __name__ == '__main__':
+def build_yoro_api():
+
+    # Get torch package
+    torch = import_module('torch')
+    if torch is None:
+        raise RuntimeError('PyTorch package is not found')
 
     # Build yoro_api
     torchPath = torch.__path__[0]
@@ -70,6 +76,31 @@ if __name__ == '__main__':
         },
         extra_ldpath=[join(torchPath, 'lib')]
     )
+
+
+def check_install_package(name, pkgName):
+
+    try:
+        import_module(name)
+    except:
+        check_call([sys.executable, '-m', 'pip', 'install', pkgName])
+
+
+def install_deps():
+
+    check_install_package('torch', 'torch')
+    check_install_package('torchvision', 'torchvision')
+    check_install_package('cv2', 'opencv-python')
+    check_install_package('numpy', 'numpy')
+    check_install_package('yaml', 'pyyaml')
+    check_install_package('tqdm', 'tqdm')
+
+
+if __name__ == '__main__':
+
+    # Packaging requirement
+    install_deps()
+    build_yoro_api()
 
     # Setup
     setup(

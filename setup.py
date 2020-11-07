@@ -59,8 +59,9 @@ class CMakeBuild(object):
 def build_yoro_api():
 
     # Get torch package
-    torch = import_module('torch')
-    if torch is None:
+    try:
+        torch = import_module('torch')
+    except:
         raise RuntimeError('PyTorch package is not found')
 
     # Build yoro_api
@@ -78,28 +79,9 @@ def build_yoro_api():
     )
 
 
-def check_install_package(name, pkgName):
-
-    try:
-        import_module(name)
-    except:
-        check_call([sys.executable, '-m', 'pip', 'install', pkgName])
-
-
-def install_deps():
-
-    check_install_package('torch', 'torch')
-    check_install_package('torchvision', 'torchvision')
-    check_install_package('cv2', 'opencv-python')
-    check_install_package('numpy', 'numpy')
-    check_install_package('yaml', 'pyyaml')
-    check_install_package('tqdm', 'tqdm')
-
-
 if __name__ == '__main__':
 
-    # Packaging requirement
-    install_deps()
+    # Build YORO API
     build_yoro_api()
 
     # Setup
@@ -129,5 +111,15 @@ if __name__ == '__main__':
             'yoro/bin/backup_exporter',
             'yoro/bin/recaller',
             'yoro/bin/trainer'
+        ],
+
+        # Dependencies
+        install_requires=[
+            'torch',
+            'torchvision',
+            'numpy',
+            'opencv-python',
+            'pyyaml',
+            'tqdm'
         ]
     )

@@ -59,7 +59,10 @@ GeneralDetector::GeneralDetector(
     switch (devType)
     {
         case DeviceType::Auto:
-            this->device = cudaAvail ? torch::kCUDA : torch::kCPU;
+            if (cudaAvail)
+                this->device = torch::kCUDA;
+            else
+                this->device = torch::kCPU;
             break;
 
         case DeviceType::CPU:

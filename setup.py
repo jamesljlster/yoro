@@ -10,6 +10,7 @@ from os.path import abspath, exists, join
 import subprocess
 from subprocess import check_call
 from setuptools import setup, find_packages
+from setuptools import dist
 
 
 class CMakeBuild(object):
@@ -80,6 +81,11 @@ def build_yoro_api():
 
 
 if __name__ == '__main__':
+
+    # Fetch build dependencies
+    dist.Distribution().fetch_build_eggs([
+        'torch'
+    ])
 
     # Build YORO API
     build_yoro_api()

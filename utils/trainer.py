@@ -1,5 +1,7 @@
 #!@Python_EXECUTABLE@
 
+import os
+import sys
 import argparse
 from yoro.utils.train_util import \
     YOROTrain, RotAnchorTrain, RotClassifierTrain, RotRegressorTrain
@@ -23,6 +25,9 @@ Training mode corresponding to the given config.
 
 
 if __name__ == '__main__':
+
+    # Append current working directory to path for custom backbone
+    sys.path.append(os.getcwd())
 
     # Parse arguments
     argp = argparse.ArgumentParser(

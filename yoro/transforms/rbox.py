@@ -17,7 +17,7 @@ def rbox_affine(sample, degree, translate, scale, resample=0, fillcolor=None):
 
     # Apply image transformation
     matrix = F._get_inverse_affine_matrix(
-        (ctrX, ctrY), -degree, translate, scale, 0)
+        (ctrX, ctrY), -degree, translate, scale, [0, 0])
 
     kwargs = {"fillcolor": fillcolor} if PILLOW_VERSION[0] >= '5' else {}
     image = image.transform(image.size, Image.AFFINE,

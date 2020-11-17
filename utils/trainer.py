@@ -3,6 +3,7 @@
 import os
 import sys
 import argparse
+import yaml
 from yoro.utils.train_util import \
     YOROTrain, RotAnchorTrain, RotClassifierTrain, RotRegressorTrain
 
@@ -35,8 +36,6 @@ if __name__ == '__main__':
         formatter_class=argparse.RawTextHelpFormatter
     )
 
-    argp.add_argument('mode', metavar='mode', type=str,
-                      choices=trainMode.keys(), help=modeHelp)
     argp.add_argument('config', type=str, help='Configuration file path')
 
     trainOpt = argp.add_argument_group('Optional trainer arguments')
@@ -48,8 +47,14 @@ if __name__ == '__main__':
     args = argp.parse_args()
 
     # Task setup
-    TrainClass = trainMode.get(args.mode, None)
     config = args.config
+    cfg = yaml.load(open(config, 'r'), Loader=yaml.FullLoader)
+
+    TrainClass = trainMode.get(cfg['mode'], None)
+    if TrainClass is None:
+        print('Invalid training mode:', args.mode)
+        exit()
+
     autoRestore = not args.no_restore
     autoExport = not args.no_export
 

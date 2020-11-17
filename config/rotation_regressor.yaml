@@ -1,3 +1,5 @@
+mode: rotreg
+
 name: rotation_regressor
 device: auto
 construct:

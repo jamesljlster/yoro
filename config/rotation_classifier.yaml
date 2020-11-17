@@ -1,3 +1,5 @@
+mode: rotcls
+
 name: rotation_classifier
 device: auto
 construct:

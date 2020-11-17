@@ -1,3 +1,5 @@
+mode: rotanc
+
 name: rotation_anchor
 device: auto
 construct:

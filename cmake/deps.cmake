@@ -3,6 +3,10 @@
 # Find OpenCV
 set(OpenCV_STATIC OFF CACHE BOOL "Using OpenCV static linking library")
 find_package(OpenCV REQUIRED)
+if(OpenCV_VERSION VERSION_LESS "4.0.0")
+    message(FATAL_ERROR "Error: OpenCV 4.0.0+ is required")
+endif()
+
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 # Find PyTorch

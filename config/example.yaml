@@ -26,9 +26,9 @@ train_param:
     args: {}
 
 dataset:
-  names_file: ~/dataset/coating_train/coating.names
-  train_dir: ~/dataset/coating_train
-  valid_dir: ~/dataset/coating_test
+  names_file: ~/dataset/coating/coating.names
+  train_dir: ~/dataset/coating/train
+  valid_dir: ~/dataset/coating/valid
 
 transform:
   brightness: 0.3

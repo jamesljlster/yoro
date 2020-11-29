@@ -22,9 +22,9 @@ train_param:
     args: {'lr': 0.0001, 'momentum': 0.9}
 
 dataset:
-  names_file: ~/dataset/PlateShelf_Mark_Train/data.names
-  train_dir: ~/dataset/PlateShelf_Mark_Train
-  valid_dir: ~/dataset/PlateShelf_Mark_Test
+  names_file: ~/dataset/PlateShelf/data.names
+  train_dir: ~/dataset/PlateShelf/train
+  valid_dir: ~/dataset/PlateShelf/valid
 
 transform:
   brightness: 0.3

@@ -21,6 +21,7 @@ train_param:
   bak_epoch: 1000
   batch: 16
   num_workers: 8
+  pin_memory: true
   optimizer:
     name: Adam
     args: {}

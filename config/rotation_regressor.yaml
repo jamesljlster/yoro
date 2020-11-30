@@ -17,6 +17,7 @@ train_param:
   bak_epoch: 100
   batch: 64
   num_workers: 8
+  pin_memory: true
   optimizer:
     name: SGD
     args: {'lr': 0.0001, 'momentum': 0.9}

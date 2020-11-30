@@ -58,11 +58,13 @@ class YOROTrain(BaseTrain):
         self.traLoader = DataLoader(
             trainSet, shuffle=True, collate_fn=rbox_collate_fn,
             batch_size=cfgTParam['batch'],
-            num_workers=cfgTParam['num_workers'])
+            num_workers=cfgTParam['num_workers'],
+            pin_memory=cfgTParam['pin_memory'])
         self.tstLoader = DataLoader(
             validSet, shuffle=False, collate_fn=rbox_collate_fn,
             batch_size=cfgTParam['batch'],
-            num_workers=cfgTParam['num_workers'])
+            num_workers=cfgTParam['num_workers'],
+            pin_memory=cfgTParam['pin_memory'])
 
         # Configure backbone
         cfgBBone = cfgCons['backbone']

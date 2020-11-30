@@ -1,5 +1,5 @@
 import yaml
-from tqdm.auto import tqdm
+from tqdm import tqdm
 from collections import OrderedDict
 
 from glob import glob
@@ -9,7 +9,6 @@ from os.path import join, exists, isdir, isfile, splitext, basename
 import torch
 from torch import optim
 from torch.nn import Sequential
-from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
 from ...datasets import RBoxSample, rbox_collate_fn

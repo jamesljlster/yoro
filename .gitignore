@@ -19,8 +19,9 @@ __pycache__
 *.backup
 *.sdict
 
-# Model files
+# Model and weight files
 *.zip
+*.pth
 
 # Files for YouCompleteMe
 .ycm_extra_conf.py

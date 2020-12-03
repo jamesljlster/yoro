@@ -188,7 +188,7 @@ class BaseTrain(object):
 
         # Load backup
         print('Restore from:', path)
-        bak = torch.load(path)
+        bak = torch.load(path, map_location=self.dev)
 
         # Load parameters
         self.epoch = bak['epoch']

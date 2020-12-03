@@ -1,5 +1,5 @@
 import torch
-from torch.nn import Module, Parameter
+from torch.nn import Module, Parameter, Sequential, Flatten, Linear
 from torch.nn import functional as F
 
 from .functional import correlation_coefficient
@@ -14,7 +14,8 @@ class RotRegressor(Module):
 
     __constants__ = ['width', 'height', 'base', 'scale']
 
-    def __init__(self, width: int, height: int, deg_min, deg_max):
+    def __init__(self, in_features: int, width: int, height: int,
+                 deg_min, deg_max):
 
         super(RotRegressor, self).__init__()
 
@@ -25,8 +26,19 @@ class RotRegressor(Module):
         self.base = (deg_max + deg_min) / 2
         self.scale = (deg_max - deg_min) / 2
 
-    def forward(self, inputs):
+        # Build regressor
+        self.regressor = Sequential(
+            Flatten(),
+            Linear(in_features, 1)
+        )
+
+    @torch.jit.export
+    def decode(self, inputs):
         return (inputs * self.scale + self.base).squeeze(-1)
+
+    def forward(self, inputs):
+        inputs = self.regressor(inputs)
+        return self.decode(inputs)
 
     @torch.jit.unused
     def loss(self, inputs, targets):
@@ -35,7 +47,8 @@ class RotRegressor(Module):
         dtype = inputs.dtype
 
         # Predict
-        predict = self.forward(inputs)
+        inputs = self.regressor(inputs)
+        predict = self.decode(inputs)
 
         # Build target
         targets = get_degrees(targets, dtype, device)
@@ -54,7 +67,8 @@ class RotClassifier(Module):
 
     __constants__ = ['width', 'height']
 
-    def __init__(self, width: int, height: int, deg_min, deg_max, deg_step=1):
+    def __init__(self, in_features: int, width: int, height: int,
+                 deg_min, deg_max, deg_step=1):
 
         super(RotClassifier, self).__init__()
 
@@ -65,8 +79,19 @@ class RotClassifier(Module):
         self.degs = Parameter(torch.arange(
             start=deg_min, end=deg_max + deg_step, step=deg_step), requires_grad=False)
 
-    def forward(self, inputs):
+        # Build regressor
+        self.regressor = Sequential(
+            Flatten(),
+            Linear(in_features, len(self.degs))
+        )
+
+    @torch.jit.export
+    def decode(self, inputs):
         return self.degs[torch.argmax(inputs, dim=1)].to(inputs.dtype)
+
+    def forward(self, inputs):
+        inputs = self.regressor(inputs)
+        return self.decode(inputs)
 
     @torch.jit.unused
     def loss(self, inputs, targets):
@@ -75,7 +100,8 @@ class RotClassifier(Module):
         dtype = inputs.dtype
 
         # Predict
-        predict = self.forward(inputs)
+        inputs = self.regressor(inputs)
+        predict = self.decode(inputs)
 
         # Build target
         targets = get_degrees(targets, dtype, device)
@@ -96,7 +122,8 @@ class RotAnchor(Module):
 
     __constants__ = ['width', 'height']
 
-    def __init__(self, width: int, height: int, deg_min, deg_max, deg_part_size):
+    def __init__(self, in_features: int, width: int, height: int,
+                 deg_min, deg_max, deg_part_size):
 
         super(RotAnchor, self).__init__()
 
@@ -118,12 +145,23 @@ class RotAnchor(Module):
         self.degPartDepth = len(self.degAnchor)
         self.degValueDepth = len(self.degAnchor)
 
-    def forward(self, inputs):
+        # Build regressor
+        self.regressor = Sequential(
+            Flatten(),
+            Linear(in_features, len(self.degAnchor) * 2)
+        )
+
+    @torch.jit.export
+    def decode(self, inputs):
         idx = torch.argmax(inputs[:, :self.degPartDepth], dim=1)
         return (self.degAnchor[idx] +
                 torch.gather(
                     inputs[:, self.degPartDepth:], 1, idx.unsqueeze(-1)).squeeze(-1) *
                 self.degValueScale)
+
+    def forward(self, inputs):
+        inputs = self.regressor(inputs)
+        return self.decode(inputs)
 
     @ torch.jit.unused
     def loss(self, inputs, targets):
@@ -132,7 +170,8 @@ class RotAnchor(Module):
         dtype = inputs.dtype
 
         # Predict
-        predict = self.forward(inputs)
+        inputs = self.regressor(inputs)
+        predict = self.decode(inputs)
 
         # Build target
         targets = get_degrees(targets, dtype, device)

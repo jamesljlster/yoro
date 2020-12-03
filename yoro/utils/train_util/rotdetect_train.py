@@ -1,3 +1,4 @@
+import torch
 from torch import optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
@@ -71,8 +72,12 @@ class RotLayerTrain(BaseTrain):
         self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
 
         # Configure rotation layer
+        src = torch.randn(1, 3, height, width)
+        out = torch.flatten(self.backbone(src.to(self.dev)), 1)
+
         self.suffixClass = rot_module
         self.suffixArgs = {
+            'in_features': out.size(1),
             'width': width,
             'height': height,
             **rot_arg_lambda(cfgCons)

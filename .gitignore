@@ -1,7 +1,11 @@
 # CMake build files
 build
+py_build
 CMakeCache.txt
 CMakeFiles
+
+# Python package
+*.egg-info
 
 # Installed files
 yoro/bin

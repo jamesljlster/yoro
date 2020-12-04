@@ -1,16 +1,17 @@
 import sys
-import distutils.sysconfig
-
 from importlib import import_module
 
 import os
 from os import makedirs, environ
-from os.path import abspath, exists, join
+from os.path import abspath, exists, join, normpath
 
 import subprocess
 from subprocess import check_call
-from setuptools import setup, find_packages
-from setuptools import dist
+from setuptools import setup, find_packages, dist
+
+
+def env_prefix():
+    return normpath(sys.prefix)
 
 
 class CMakeBuild(object):
@@ -29,7 +30,7 @@ class CMakeBuild(object):
 
         # Prefix paths
         args += [
-            '-DCMAKE_PREFIX_PATH=%s' % distutils.sysconfig.PREFIX
+            '-DCMAKE_PREFIX_PATH=%s' % env_prefix()
         ]
 
         # Build type
@@ -70,7 +71,7 @@ def build_yoro_api():
     CMakeBuild(
         source='.',
         cmake_args={
-            'Python_ROOT_DIR': distutils.sysconfig.PREFIX,
+            'Python_ROOT_DIR': env_prefix(),
             'Python_FIND_STRATEGY': 'LOCATION',
             'Python_FIND_REGISTRY': 'FIRST',
             'Torch_DIR': join(torchPath, 'share/cmake/Torch'),

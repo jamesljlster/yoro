@@ -6,6 +6,7 @@ CMakeFiles
 
 # Python package
 *.egg-info
+dist
 
 # Installed files
 yoro/bin

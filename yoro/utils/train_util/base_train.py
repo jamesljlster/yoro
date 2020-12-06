@@ -143,7 +143,7 @@ class BaseTrain(object):
                     self.bestKpi = kpiCmp
                     self.bestState = deepcopy(self.model_state_dict())
 
-                    print('New best weight found!')
+                    print('New best weight was found!')
                     print()
 
             # Backup

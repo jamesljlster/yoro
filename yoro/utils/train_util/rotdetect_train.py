@@ -92,6 +92,9 @@ class RotLayerTrain(BaseTrain):
                 {'params': self.suffix.parameters()}],
             **cfgOptim['args'])
 
+        # Configure model KPI
+        self.modelKpi = ['corr']
+
 
 class RotRegressorTrain(RotLayerTrain):
 

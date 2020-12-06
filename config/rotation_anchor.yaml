@@ -9,8 +9,8 @@ construct:
   deg_max: 45
   deg_part_size: 10
   backbone:
-    name: 'torchvision.models.resnet18'
-    args: {}
+    name: 'yoro.backbone.ResNet_Feature'
+    args: {model_name: resnet18}
 
 train_param:
   max_epoch: 500

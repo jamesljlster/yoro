@@ -1,4 +1,5 @@
 import yaml
+from copy import deepcopy
 from tqdm import tqdm
 from collections import OrderedDict
 
@@ -15,6 +16,18 @@ from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
     Rot_ColorJitter, Rot_RandomAffine, Rot_Resize, Rot_ToTensor
 from ..info_summarize import info_add, info_simplify, info_represent
+
+
+def kpi_compare(old, new):
+
+    greater = False
+    for (ko, kn) in zip(old, new):
+        if kn > ko:
+            greater = True
+        elif kn < ko:
+            break
+
+    return greater
 
 
 class BaseTrain(object):
@@ -48,6 +61,11 @@ class BaseTrain(object):
         # Training log
         self.trainLog = {}
         self.validLog = {}
+
+        # Best model state
+        self.modelKpi = []
+        self.bestKpi = None
+        self.bestState = None
 
         # Check backup folder
         self.bakDir = self.name + '.backup'
@@ -96,10 +114,12 @@ class BaseTrain(object):
                 ))
 
             # Logging
+            lossInfo = info_simplify(runLoss)
+            estiInfo = info_simplify(runInfo)
             if saveLog:
                 self.trainLog[self.epoch + 1] = {
-                    'loss': info_simplify(runLoss),
-                    'info': info_simplify(runInfo)
+                    'loss': lossInfo,
+                    'info': estiInfo
                 }
 
             # Increase iterating index
@@ -107,7 +127,24 @@ class BaseTrain(object):
 
             # Validating
             if self.epoch % self.estiEpoch == 0:
-                self.valid(saveLog=saveLog)
+                validLoss, validEsti = self.valid(saveLog=saveLog)
+
+                # Compare kpi and save best weight
+                kpiCmp = [validEsti.get(item) for item in self.modelKpi]
+                kpiCmp += [-validLoss, -lossInfo]
+
+                newBest = False
+                if self.bestKpi is None:
+                    newBest = True
+                elif kpi_compare(self.bestKpi, kpiCmp):
+                    newBest = True
+
+                if newBest:
+                    self.bestKpi = kpiCmp
+                    self.bestState = deepcopy(self.model_state_dict())
+
+                    print('New best weight found!')
+                    print()
 
             # Backup
             if self.epoch % self.bakEpoch == 0:
@@ -148,11 +185,30 @@ class BaseTrain(object):
         print()
 
         # Logging
+        lossInfo = info_simplify(runLoss)
+        estiInfo = info_simplify(runInfo)
         if saveLog:
             self.validLog[self.epoch] = {
-                'loss': info_simplify(runLoss),
-                'info': info_simplify(runInfo)
+                'loss': lossInfo,
+                'info': estiInfo
             }
+
+        return lossInfo, estiInfo
+
+    def model_state_dict(self):
+        sDict = {
+            'backbone': self.backbone.state_dict(),
+            'suffix': self.suffix.state_dict(),
+        }
+        return sDict
+
+    def apply_best_state(self):
+        if self.bestState is None:
+            print('No best state is avaliable!')
+            return
+        else:
+            self.backbone.load_state_dict(self.bestState['backbone'])
+            self.suffix.load_state_dict(self.bestState['suffix'])
 
     def backup(self):
 
@@ -164,9 +220,11 @@ class BaseTrain(object):
         torch.save({
             'epoch': self.epoch,
 
-            'bbone_state_dict': self.backbone.state_dict(),
-            'suffix_state_dict': self.suffix.state_dict(),
+            'model_state_dict': self.model_state_dict(),
             'optim_state_dict': self.optimizer.state_dict(),
+
+            'best_kpi': self.bestKpi,
+            'best_state': self.bestState,
 
             'trainLog': self.trainLog,
             'validLog': self.validLog
@@ -193,9 +251,13 @@ class BaseTrain(object):
         # Load parameters
         self.epoch = bak['epoch']
 
-        self.backbone.load_state_dict(bak['bbone_state_dict'])
-        self.suffix.load_state_dict(bak['suffix_state_dict'])
+        modelState = bak['model_state_dict']
+        self.backbone.load_state_dict(modelState['backbone'])
+        self.suffix.load_state_dict(modelState['suffix'])
         self.optimizer.load_state_dict(bak['optim_state_dict'])
+
+        self.bestKpi = bak['best_kpi']
+        self.bestState = bak['best_state']
 
         self.trainLog = bak['trainLog']
         self.validLog = bak['validLog']

@@ -262,7 +262,7 @@ class BaseTrain(object):
         self.trainLog = bak['trainLog']
         self.validLog = bak['validLog']
 
-    def export_model(self, path=None):
+    def export_model(self, best_state=True, path=None):
 
         # Auto selection
         if path == None:
@@ -274,8 +274,12 @@ class BaseTrain(object):
             ('suffix', self.suffixClass(**self.suffixArgs))
         ])))
 
-        model.backbone.load_state_dict(self.backbone.state_dict())
-        model.suffix.load_state_dict(self.suffix.state_dict())
+        if best_state and (self.bestState is not None):
+            model.backbone.load_state_dict(self.bestState['backbone'])
+            model.suffix.load_state_dict(self.bestState['suffix'])
+        else:
+            model.backbone.load_state_dict(self.backbone.state_dict())
+            model.suffix.load_state_dict(self.suffix.state_dict())
 
         # Save model
         print('Export model to:', path)

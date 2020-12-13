@@ -117,7 +117,8 @@ if __name__ == '__main__':
             'yoro/bin/anchor_cluster',
             'yoro/bin/backup_exporter',
             'yoro/bin/recaller',
-            'yoro/bin/trainer'
+            'yoro/bin/trainer',
+            'yoro/bin/pretrain_exporter'
         ],
 
         # Dependencies

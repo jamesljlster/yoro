@@ -96,7 +96,7 @@ vector<vector<RBox>> non_maximum_suppression(
 
             // Find indices and weights of rbox that ready to be merged.
             Tensor rmIdx = logical_and(labelMatch, highSim).squeeze(0);
-            if (rmIdx.sum().item<bool>() == 0)
+            if (!rmIdx.sum().item<bool>())
             {
                 rmIdx.accessor<bool, 1>()[0] = true;
             }

@@ -91,7 +91,8 @@ vector<vector<RBox>> non_maximum_suppression(
 
             // Get indices of rbox with high similarity
             Tensor highSim =
-                rbox_similarity(pred.index({0, Ellipsis}).unsqueeze(0), pred);
+                (rbox_similarity(
+                     pred.index({0, Ellipsis}).unsqueeze(0), pred) >= nmsTh);
 
             // Find indices and weights of rbox that ready to be merged.
             Tensor rmIdx = logical_and(labelMatch, highSim).squeeze(0);

@@ -43,5 +43,5 @@ if __name__ == '__main__':
 
     # Export model from backup
     tc = TrainClass(args.config)
-    tc.restore(args.backup)
-    tc.export_model(args.out_name)
+    tc.restore(path=args.backup)
+    tc.export_model(path=args.out_name)

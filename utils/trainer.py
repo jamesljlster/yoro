@@ -18,15 +18,6 @@ trainMode = {
 }
 
 
-modeHelp = '''\
-Training mode corresponding to the given config.
-    yoro:    Train a rotated object detector.
-    rotanc:  Train a rotation detector with anchor encoding.
-    rotcls:  Train a rotation detector with class encoding.
-    rotreg:  Train a rotation detector with regression encoding.
-'''
-
-
 if __name__ == '__main__':
 
     # Append current working directory to path for custom backbone

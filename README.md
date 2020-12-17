@@ -5,7 +5,7 @@ performimg simultaneous realtime object detection and rotation detection.
 
 <img width="650" src=".assets/demo.png" />
 
-The document project is here: <https://github.com/jamesljlster/yoro-tutorial>  
+The documentation project is here: <https://github.com/jamesljlster/yoro-tutorial>  
 But only Chinese version is available currently.  
 If you want a English version, please open a issue for it.  
 At least let me know you are interested in my hard work :D

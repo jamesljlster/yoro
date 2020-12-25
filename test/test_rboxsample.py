@@ -16,13 +16,13 @@ def imshow(img):
 if __name__ == '__main__':
 
     # Coating rbox image
-    data = RBoxSample('~/dataset/coating_test')
+    data = RBoxSample('~/dataset/coating/valid')
     print('numClasses:', data.numClasses)
     print('classNames:', data.classNames)
     print()
 
-    data = RBoxSample('~/dataset/coating_test',
-                      '~/dataset/coating_test/coating.names')
+    data = RBoxSample('~/dataset/coating/valid',
+                      '~/dataset/coating/coating.names')
     print('numClasses:', data.numClasses)
     print('classNames:', data.classNames)
     dataLoader = DataLoader(data, batch_size=12, collate_fn=rbox_collate_fn)
@@ -32,8 +32,8 @@ if __name__ == '__main__':
     print()
 
     # Coating rbox tensor
-    data = RBoxSample('~/dataset/coating_test',
-                      '~/dataset/coating_test/coating.names',
+    data = RBoxSample('~/dataset/coating/valid',
+                      '~/dataset/coating/coating.names',
                       transform=RBox_ToTensor())
     dataLoader = DataLoader(data, batch_size=12, collate_fn=rbox_collate_fn)
     for images, annos in dataLoader:
@@ -48,8 +48,8 @@ if __name__ == '__main__':
         RBox_ToTensor()
     ])
 
-    data = RBoxSample('~/dataset/coating_test',
-                      '~/dataset/coating_test/coating.names',
+    data = RBoxSample('~/dataset/coating/valid',
+                      '~/dataset/coating/coating.names',
                       transform=transform)
     dataLoader = DataLoader(data, batch_size=12, collate_fn=rbox_collate_fn)
     for images, annos in dataLoader:
@@ -63,8 +63,8 @@ if __name__ == '__main__':
         Rot_ToTensor()
     ])
 
-    data = RBoxSample('~/dataset/PlateShelf_Mark_Test',
-                      '~/dataset/PlateShelf_Mark_Test/data.names',
+    data = RBoxSample('~/dataset/PlateShelf/valid',
+                      '~/dataset/PlateShelf/data.names',
                       transform=transform)
     dataLoader = DataLoader(data, batch_size=12, collate_fn=rbox_collate_fn)
     for images, annos in dataLoader:

@@ -42,6 +42,9 @@ set(LIB_DIR "lib/${PROJECT_NAME}")
 set(INC_DIR "include/${PROJECT_NAME}")
 set(EXPORT_DIR "lib/cmake/${PROJECT_NAME}")
 
+# Cache PyTorch library path
+get_filename_component(TORCH_LIB_PATH "${Torch_DIR}/../../../lib" ABSOLUTE)
+
 # Build library
 add_library(${PROJECT_NAME} ${PROJECT_SRCS})
 set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -49,6 +52,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     OUTPUT_NAME ${PROJECT_NAME}
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+    INSTALL_RPATH "${TORCH_LIB_PATH}"
     )
 
 target_link_libraries(${PROJECT_NAME}
@@ -66,7 +70,7 @@ if(${BUILD_PYTHON_MODULE})
         CXX_STANDARD 14
         OUTPUT_NAME ${MODULE_NAME}
         PREFIX ""
-        INSTALL_RPATH "${CMAKE_RPATH_PREFIX}/${PYM_INSTALL_RPATH}"
+        INSTALL_RPATH "${CMAKE_RPATH_PREFIX}/${PYM_INSTALL_RPATH};${TORCH_LIB_PATH}"
         )
 
     target_compile_definitions(${MODULE_NAME} PRIVATE

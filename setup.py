@@ -91,6 +91,20 @@ if __name__ == '__main__':
     # Build YORO API
     build_yoro_api()
 
+    # Resolve dependencies
+    install_requires = [
+        'torch',
+        'torchvision',
+        'numpy',
+        'pyyaml',
+        'tqdm'
+    ]
+
+    try:
+        import_module('cv2')
+    except:
+        install_requires += ['opencv-python']
+
     # Setup
     setup(
 
@@ -122,12 +136,5 @@ if __name__ == '__main__':
         ],
 
         # Dependencies
-        install_requires=[
-            'torch',
-            'torchvision',
-            'numpy',
-            'opencv-python',
-            'pyyaml',
-            'tqdm'
-        ]
+        install_requires=install_requires
     )

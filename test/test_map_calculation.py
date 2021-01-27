@@ -168,6 +168,7 @@ if __name__ == '__main__':
                     'dataInd': dataInd
                 })
 
+    mAP = 0
     for cId in predPair:
 
         results = predPair[cId]
@@ -206,6 +207,27 @@ if __name__ == '__main__':
         for inst in apTable:
             print(inst)
         print()
+
+        r = [0.0]
+        p = [0.0]
+        for inst in apTable:
+            precision = inst[4]
+            recall = inst[5]
+
+            if recall not in r:
+                r.append(recall)
+                p.append(precision)
+            else:
+                p[-1] = max(p[-1], precision)
+
+        ap = 0
+        for i in range(1, len(r)):
+            ap += (r[i] - r[i - 1]) * p[i]
+
+        mAP += ap
+
+    mAP /= len(predPair)
+    print('mAP:', mAP)
 
     exit()
 

@@ -50,7 +50,7 @@ if __name__ == '__main__':
     netReso.add_argument('--width', type=int, default=224,
                          help='Network input width')
     netReso.add_argument('--height', type=int, default=224,
-                         help='Network input width')
+                         help='Network input height')
 
     args = argp.parse_args()
 

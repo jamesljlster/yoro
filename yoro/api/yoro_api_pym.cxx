@@ -9,7 +9,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 {
     py::class_<RBox>(m, "RBox")
         .def(py::init())
-        .def(py::init<float, float, float, float, float, float, float>())
+        .def(py::init<float, int, float, float, float, float, float>())
         .def("__repr__", &RBox::to_string)
         .def(
             "to_dict",
@@ -48,6 +48,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def(py::init<const std::string&>())
         .def("detect", &RotationDetector::detect);
 
+    m.def("rbox_similarity", rbox_similarity);
     m.def(
         "non_maximum_suppression",
         py::overload_cast<

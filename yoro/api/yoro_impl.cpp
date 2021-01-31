@@ -142,9 +142,8 @@ std::vector<RBox> YORODetector::Impl::detect(
     auto listRef = outputs->elements();
     Tensor predConf = listRef[0].toTensor();
     Tensor predClass = listRef[1].toTensor();
-    Tensor predClassConf = listRef[2].toTensor();
-    Tensor predBox = listRef[3].toTensor();
-    Tensor predDeg = listRef[4].toTensor();
+    Tensor predBox = listRef[2].toTensor();
+    Tensor predDeg = listRef[3].toTensor();
 
     // Denormalize
     predBox.mul_(scale);
@@ -153,7 +152,7 @@ std::vector<RBox> YORODetector::Impl::detect(
 
     // Processing non-maximum suppression
     std::vector<std::vector<RBox>> nmsOut = yoro_api::non_maximum_suppression(
-        {predConf, predClass, predClassConf, predBox, predDeg}, confTh, nmsTh);
+        {predConf, predClass, predBox, predDeg}, confTh, nmsTh);
 
     return nmsOut[0];
 }

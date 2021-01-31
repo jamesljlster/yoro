@@ -29,8 +29,8 @@ Tensor bbox_to_corners(const Tensor& bbox)
 Tensor rbox_similarity(const Tensor& pred1, const Tensor& pred2)
 {
     // BBox to corners
-    Tensor corners1 = bbox_to_corners(pred1.index({Ellipsis, Slice(4, 8)}));
-    Tensor corners2 = bbox_to_corners(pred2.index({Ellipsis, Slice(4, 8)}));
+    Tensor corners1 = bbox_to_corners(pred1.index({Ellipsis, Slice(3, 7)}));
+    Tensor corners2 = bbox_to_corners(pred2.index({Ellipsis, Slice(3, 7)}));
 
     // Find IoU scores
     Tensor interX1 =
@@ -44,14 +44,14 @@ Tensor rbox_similarity(const Tensor& pred1, const Tensor& pred2)
 
     Tensor interArea =
         clamp(interX2 - interX1, 0) * clamp(interY2 - interY1, 0);
-    Tensor unionArea = pred1.index({Ellipsis, 6}) * pred2.index({Ellipsis, 6}) +
-                       pred1.index({Ellipsis, 7}) * pred2.index({Ellipsis, 7}) -
+    Tensor unionArea = pred1.index({Ellipsis, 5}) * pred2.index({Ellipsis, 5}) +
+                       pred1.index({Ellipsis, 6}) * pred2.index({Ellipsis, 6}) -
                        interArea;
     Tensor ious = interArea / (unionArea + 1e-4);
 
     // Find degree similarity
-    Tensor rad1 = deg2rad(pred1.index({Ellipsis, 3}));
-    Tensor rad2 = deg2rad(pred2.index({Ellipsis, 3}));
+    Tensor rad1 = deg2rad(pred1.index({Ellipsis, 2}));
+    Tensor rad2 = deg2rad(pred2.index({Ellipsis, 2}));
     Tensor ang1 = stack({sin(rad1), cos(rad1)}, 1);
     Tensor ang2 = stack({sin(rad2), cos(rad2)}, 1);
     Tensor angSim = (matmul(ang1, ang2.t()) + 1.0) / 2.0;
@@ -73,7 +73,7 @@ vector<vector<RBox>> non_maximum_suppression(
     {
         Tensor pred = predIn.index({n, "..."});
 
-        // Objectness filtering
+        // Confidence filtering
         pred = pred.index(pred.index({Ellipsis, 0}) >= confTh);
 
         // RBox similarity filtering
@@ -81,8 +81,7 @@ vector<vector<RBox>> non_maximum_suppression(
         while (pred.size(0))
         {
             // Sort rbox with confidence
-            Tensor confScore =
-                pred.index({Ellipsis, 0}) * pred.index({Ellipsis, 2});
+            Tensor confScore = pred.index({Ellipsis, 0});
             pred = pred.index({confScore.argsort(0, true)});
 
             // Get indices of rbox with same label
@@ -110,13 +109,13 @@ vector<vector<RBox>> non_maximum_suppression(
 
             auto data = rbox.accessor<float, 1>();
             boxes.push_back(RBox(
-                data[0] * data[2],  // Confidence
-                (int)data[1],       // Label
-                data[3],            // Degree
-                data[4],            // Center x
-                data[5],            // Center y
-                data[6],            // Width
-                data[7]             // Height
+                data[0],       // Confidence
+                (int)data[1],  // Label
+                data[2],       // Degree
+                data[3],       // Center x
+                data[4],       // Center y
+                data[5],       // Width
+                data[6]        // Height
                 ));
 
             // Remove processed rbox
@@ -132,7 +131,6 @@ vector<vector<RBox>> non_maximum_suppression(
 vector<vector<RBox>> non_maximum_suppression(
     const Tensor& predConf,
     const Tensor& predClass,
-    const Tensor& predClassConf,
     const Tensor& predBox,
     const Tensor& predDeg,
     float confTh,
@@ -142,7 +140,6 @@ vector<vector<RBox>> non_maximum_suppression(
     Tensor pred = torch::cat(
                       {predConf.unsqueeze(-1).to(PROC_DTYPE),
                        predClass.unsqueeze(-1).to(PROC_DTYPE),
-                       predClassConf.unsqueeze(-1).to(PROC_DTYPE),
                        predDeg.unsqueeze(-1).to(PROC_DTYPE),
                        predBox.to(PROC_DTYPE)},
                       2)
@@ -153,20 +150,19 @@ vector<vector<RBox>> non_maximum_suppression(
 }
 
 vector<vector<RBox>> non_maximum_suppression(
-    const tuple<Tensor, Tensor, Tensor, Tensor, Tensor>& outputs,
+    const tuple<Tensor, Tensor, Tensor, Tensor>& outputs,
     float confTh,
     float nmsTh)
 {
     // Unpack tuple
     Tensor predConf = std::get<0>(outputs);
     Tensor predClass = std::get<1>(outputs);
-    Tensor predClassConf = std::get<2>(outputs);
-    Tensor predBox = std::get<3>(outputs);
-    Tensor predDeg = std::get<4>(outputs);
+    Tensor predBox = std::get<2>(outputs);
+    Tensor predDeg = std::get<3>(outputs);
 
     // Processing non-maximum suppression
     return non_maximum_suppression(
-        predConf, predClass, predClassConf, predBox, predDeg, confTh, nmsTh);
+        predConf, predClass, predBox, predDeg, confTh, nmsTh);
 }
 
 }  // namespace yoro_api

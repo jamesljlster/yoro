@@ -56,7 +56,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
                 torch::Tensor,
                 torch::Tensor,
                 torch::Tensor,
-                torch::Tensor,
                 torch::Tensor>&,
             float,
             float>(non_maximum_suppression));

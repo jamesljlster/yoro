@@ -25,19 +25,15 @@ std::vector<std::vector<RBox>> non_maximum_suppression(
 std::vector<std::vector<RBox>> non_maximum_suppression(
     const torch::Tensor& predConf,
     const torch::Tensor& predClass,
-    const torch::Tensor& predClassConf,
     const torch::Tensor& predBox,
     const torch::Tensor& predDeg,
     float confTh,
     float nmsTh);
 
 std::vector<std::vector<RBox>> non_maximum_suppression(
-    const std::tuple<
-        torch::Tensor,
-        torch::Tensor,
-        torch::Tensor,
-        torch::Tensor,
-        torch::Tensor>& outputs,
+    const std::
+        tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>&
+            outputs,
     float confTh,
     float nmsTh);
 

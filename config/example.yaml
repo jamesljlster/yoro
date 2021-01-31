@@ -18,6 +18,11 @@ construct:
 train_param:
   max_epoch: 30000
   esti_epoch: 100
+  evaluator:
+    conf_threshold: 0.5
+    nms_threshold: 0.7
+    sim_threshold: 0.5
+
   bak_epoch: 1000
   batch: 16
   num_workers: 8

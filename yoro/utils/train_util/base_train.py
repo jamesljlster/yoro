@@ -30,6 +30,15 @@ def kpi_compare(old, new):
     return greater
 
 
+class BaseEvaluator(object):
+
+    def post_process(self, preds):
+        return None
+
+    def evaluate(self, dts_gts):
+        return None
+
+
 class BaseTrain(object):
 
     def __init__(self, config_path):
@@ -57,6 +66,9 @@ class BaseTrain(object):
 
         # Iterating index
         self.epoch = 0
+
+        # Evaluator callback
+        self.evaluator = None
 
         # Training log
         self.trainLog = {}
@@ -109,8 +121,8 @@ class BaseTrain(object):
                 loop.set_description('Epoch %d/%d' %
                                      (self.epoch + 1, self.maxEpoch))
                 loop.set_postfix_str('loss: %s, %s' % (
-                    info_represent(runLoss),
-                    info_represent(runInfo)
+                    info_represent(info_simplify(runLoss)),
+                    info_represent(info_simplify(runInfo))
                 ))
 
             # Logging
@@ -164,6 +176,11 @@ class BaseTrain(object):
         runInfo = None
         runLoss = None
 
+        if self.evaluator is not None:
+            predPair = []
+        else:
+            predPair = None
+
         loop = tqdm(self.tstLoader, leave=False)
         for inst in loop:
 
@@ -175,18 +192,32 @@ class BaseTrain(object):
             out = self.backbone(inputs)
             loss, info = self.suffix.loss(out, targets)
 
+            if self.evaluator is not None:
+                preds = self.suffix(out)
+                preds = self.evaluator.post_process(preds)
+                for pair in zip(preds, targets):
+                    predPair.append(pair)
+
             # Accumulate informations
             runInfo = info_add(runInfo, info)
             runLoss = info_add(runLoss, loss)
 
+        # Evaluationg with prediction and ground truth
+        evalInfo = None
+        if self.evaluator is not None:
+            evalInfo = self.evaluator.evaluate(predPair)
+
         # Show message
-        print('Loss: %s' % info_represent(runLoss))
-        print('Info: %s' % info_represent(runInfo))
+        lossInfo = info_simplify(runLoss)
+        estiInfo = info_simplify(runInfo)
+        if evalInfo is not None:
+            estiInfo = {**evalInfo, **estiInfo}
+
+        print('Loss: %s' % info_represent(lossInfo))
+        print('Info: %s' % info_represent(estiInfo))
         print()
 
         # Logging
-        lossInfo = info_simplify(runLoss)
-        estiInfo = info_simplify(runInfo)
         if saveLog:
             self.validLog[self.epoch] = {
                 'loss': lossInfo,

@@ -164,7 +164,6 @@ def elem_repr_recursive(reprStr, src, fmt):
 
 def info_represent(src, decimal=3):
 
-    info = info_simplify(src)
     fmt = '{0:.%df}' % decimal
 
-    return elem_repr_recursive('', info, fmt)
+    return elem_repr_recursive('', src, fmt)

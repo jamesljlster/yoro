@@ -132,7 +132,8 @@ if __name__ == '__main__':
             'yoro/bin/backup_exporter',
             'yoro/bin/recaller',
             'yoro/bin/trainer',
-            'yoro/bin/pretrain_exporter'
+            'yoro/bin/pretrain_exporter',
+            'yoro/bin/map_evaluator'
         ],
 
         # Dependencies

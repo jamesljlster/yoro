@@ -3,11 +3,11 @@ from torch import optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
+from ... import api
 from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
     RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToAspect, RBox_ToTensor
 from ...layers import YOROLayer
-from ...api import non_maximum_suppression, RBox
 from ..object_loader import load_object
 
 from .base_train import BaseTrain, BaseEvaluator
@@ -118,7 +118,7 @@ class YOROEvaluator(BaseEvaluator):
         self.simTh = sim_threshold
 
     def post_process(self, preds):
-        return non_maximum_suppression(preds, self.confTh, self.nmsTh)
+        return api.non_maximum_suppression(preds, self.confTh, self.nmsTh)
 
     def evaluate(self, dts_gts):
 
@@ -135,7 +135,7 @@ class YOROEvaluator(BaseEvaluator):
                 gtId = gtCounter
                 gtCounter += 1
 
-                gt = RBox()
+                gt = api.RBox()
                 gt.conf = 1.0
                 gt.label = inst['label']
                 gt.degree = inst['degree']
@@ -153,7 +153,7 @@ class YOROEvaluator(BaseEvaluator):
 
                 # Find similarities between prediction and ground truths
                 rboxSim = rbox_similarity(
-                    [dt], [gtTmp[gtKey] for gtKey in gtTmp])
+                    dt, [gtTmp[gtKey] for gtKey in gtTmp])
                 highSim = (rboxSim >= self.simTh).squeeze(0)
 
                 dtLabel = dt.label
@@ -224,58 +224,14 @@ class YOROEvaluator(BaseEvaluator):
         return {'mAP': mAP}
 
 
-def bbox_to_corners(bbox):
-
-    corners = torch.zeros_like(bbox)
-    corners[..., 0] = bbox[..., 0] - bbox[..., 2] / 2.0
-    corners[..., 1] = bbox[..., 1] - bbox[..., 3] / 2.0
-    corners[..., 2] = bbox[..., 0] + bbox[..., 2] / 2.0
-    corners[..., 3] = bbox[..., 1] + bbox[..., 3] / 2.0
-
-    return corners
-
-
-def get_bbox(pred):
-    return torch.tensor([
-        [inst.x, inst.y, inst.w, inst.h] for inst in pred])
-
-
-def deg2rad(deg):
-    return deg * 3.1415927410125732 / 180.0
-
-
-def get_degree(pred):
-    return torch.tensor([inst.degree for inst in pred])
+def get_rbox_tensor(rbox):
+    return [rbox.degree, rbox.x, rbox.y, rbox.w, rbox.h]
 
 
 def rbox_similarity(pred1, pred2):
-
-    # Get bounding boxes
-    bbox1 = get_bbox(pred1)
-    bbox2 = get_bbox(pred2)
-
-    # Bounding boxes to corners
-    corners1 = bbox_to_corners(bbox1)
-    corners2 = bbox_to_corners(bbox2)
-
-    # Find IoU scores
-    interX1 = torch.max(corners1[..., 0], corners2[..., 0])
-    interY1 = torch.max(corners1[..., 1], corners2[..., 1])
-    interX2 = torch.min(corners1[..., 2], corners2[..., 2])
-    interY2 = torch.min(corners1[..., 3], corners2[..., 3])
-
-    interArea = (torch.clamp(interX2 - interX1, 0) *
-                 torch.clamp(interY2 - interY1, 0))
-    unionArea = (bbox1[..., 2] * bbox1[..., 3] +
-                 bbox2[..., 2] * bbox2[..., 3] -
-                 interArea)
-    ious = interArea / (unionArea + 1e-4)
-
-    # Find degree similarity
-    rad1 = deg2rad(get_degree(pred1))
-    rad2 = deg2rad(get_degree(pred2))
-    ang1 = torch.stack([torch.sin(rad1), torch.cos(rad1)], 1)
-    ang2 = torch.stack([torch.sin(rad2), torch.cos(rad2)], 1)
-    angSim = (torch.matmul(ang1, ang2.t()) + 1.0) / 2.0
-
-    return ious * angSim
+    return api.rbox_similarity(
+        torch.tensor([get_rbox_tensor(pred1)], dtype=torch.float32),
+        torch.tensor(
+            [get_rbox_tensor(rbox) for rbox in pred2],
+            dtype=torch.float32)
+    )

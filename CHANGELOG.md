@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
-## \[0.1.0\] - 2017-06-20
+### Added
+
+-   Add mAP estimation in validation progress for YORO training,
+    and map\_evaluator utility for model performance evaluation.
+
+### Changed
+
+-   NMS is now filtering prediction with (objectness \* class confidence)
+    instead of only objectness.
+    This change breaks backward compatibility of torchscript model.
+-   In order to support model with different value for width and height,
+    anchor\_cluster is now using padding to aspect ratio instead of padding
+    to square.
+
+### Fixed
+
+-   Wrong description of ‘height’ command line parameter for anchor\_cluster.
+-   Add implicit build dependency ‘cudnn’ in readme.
+
+## \[0.1.0\] - 2021-01-10
 
 Initial release.
 

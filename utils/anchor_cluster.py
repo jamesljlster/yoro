@@ -8,7 +8,7 @@ from random import shuffle
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
-from yoro.transforms import RBox_Resize, RBox_PadToSquare
+from yoro.transforms import RBox_Resize, RBox_PadToAspect
 from yoro.datasets import RBoxSample, rbox_collate_fn
 
 
@@ -55,10 +55,12 @@ if __name__ == '__main__':
     args = argp.parse_args()
 
     # Load dataset
+    width = args.width
+    height = args.height
     dataLoader = DataLoader(
         RBoxSample(args.path, transform=Compose([
-            RBox_PadToSquare(),
-            RBox_Resize((args.height, args.width))
+            RBox_PadToAspect(float(width) / height),
+            RBox_Resize((height, width))
         ])),
         shuffle=True,
         collate_fn=rbox_collate_fn

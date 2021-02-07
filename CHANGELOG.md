@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning][].
 
 -   Wrong description of ‘height’ command line parameter for anchor\_cluster.
 -   Add implicit build dependency ‘cudnn’ in readme.
+-   Incorrect rotated bounding box similarity calculation.
 
 ## \[0.1.0\] - 2021-01-10
 

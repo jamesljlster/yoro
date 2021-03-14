@@ -296,7 +296,7 @@ class YOROLayer(Module):
             'obj': (objConf, 1),
             'nobj': (nobjConf, 1),
             'cls': (clsAccu, objs),
-            'deg': (degCorr, 1)
+            'deg': (degCorr, 1) if degCorr is not None else (0, 0)
         }
 
         return loss, info

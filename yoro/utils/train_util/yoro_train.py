@@ -151,17 +151,19 @@ class YOROEvaluator(BaseEvaluator):
             # Compare prediction with ground truths
             for dt in pred:
 
-                # Find similarities between prediction and ground truths
-                rboxSim = rbox_similarity(
-                    dt, [gtTmp[gtKey] for gtKey in gtTmp])
-                highSim = (rboxSim >= self.simTh).squeeze(0)
-
                 dtLabel = dt.label
                 dtConf = dt.conf
 
-                if highSim.sum() > 0:
+                # Find similarities between prediction and ground truths
+                paired = False
+                rboxSim = rbox_similarity(
+                    dt, [gtTmp[gtKey] for gtKey in gtTmp])
+
+                if rboxSim is not None:
+                    highSim = (rboxSim >= self.simTh).squeeze(0)
                     for gtKey, match in zip(gtTmp, highSim):
                         if match:
+                            paired = True
                             predPair[dtLabel].append({
                                 'conf': dtConf,
                                 'pred': dtLabel,
@@ -170,7 +172,7 @@ class YOROEvaluator(BaseEvaluator):
                                 'dataInd': dataInd
                             })
 
-                else:
+                if not paired:
                     predPair[dtLabel].append({
                         'conf': dtConf,
                         'pred': dtLabel,
@@ -229,9 +231,12 @@ def get_rbox_tensor(rbox):
 
 
 def rbox_similarity(pred1, pred2):
-    return api.rbox_similarity(
-        torch.tensor([get_rbox_tensor(pred1)], dtype=torch.float32),
-        torch.tensor(
-            [get_rbox_tensor(rbox) for rbox in pred2],
-            dtype=torch.float32)
-    )
+    if len(pred2) == 0:
+        return None
+    else:
+        return api.rbox_similarity(
+            torch.tensor([get_rbox_tensor(pred1)], dtype=torch.float32),
+            torch.tensor(
+                [get_rbox_tensor(rbox) for rbox in pred2],
+                dtype=torch.float32)
+        )

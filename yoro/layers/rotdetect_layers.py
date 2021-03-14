@@ -60,7 +60,10 @@ class RotRegressor(Module):
         # Find correlation coefficient
         corr = correlation_coefficient(predict, targets)
 
-        return (loss, 1), {'corr': (corr.item(), 1)}
+        return (
+            (loss, 1),
+            {'corr': (corr.item(), 1) if corr is not None else (0, 0)}
+        )
 
 
 class RotClassifier(Module):
@@ -115,7 +118,10 @@ class RotClassifier(Module):
         targets = self.degs[targets].to(dtype)
         corr = correlation_coefficient(predict, targets)
 
-        return (loss, 1), {'corr': (corr.item(), 1)}
+        return (
+            (loss, 1),
+            {'corr': (corr.item(), 1) if corr is not None else (0, 0)}
+        )
 
 
 class RotAnchor(Module):
@@ -192,4 +198,7 @@ class RotAnchor(Module):
         # Find correlation coefficient
         corr = correlation_coefficient(predict, targets)
 
-        return (loss, 1), {'corr': (corr.item(), 1)}
+        return (
+            (loss, 1),
+            {'corr': (corr.item(), 1) if corr is not None else (0, 0)}
+        )

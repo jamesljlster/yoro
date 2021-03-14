@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
+## \[0.2.0\] - 2021-03-14
+
 ### Added
 
 -   Add mAP estimation in validation progress for YORO training,

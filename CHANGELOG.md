@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
+### Fixed
+
+-   C++ API compatibility with PyTorch 1.8.0.
+
 ## \[0.2.0\] - 2021-03-14
 
 ### Added

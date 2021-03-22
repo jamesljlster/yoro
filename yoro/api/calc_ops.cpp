@@ -76,7 +76,7 @@ vector<vector<RBox>> non_maximum_suppression(
         Tensor pred = predIn.index({n, "..."});
 
         // Confidence filtering
-        pred = pred.index(pred.index({Ellipsis, 0}) >= confTh);
+        pred = pred.index({pred.index({Ellipsis, 0}) >= confTh});
 
         // RBox similarity filtering
         vector<RBox> boxes;
@@ -103,7 +103,7 @@ vector<vector<RBox>> non_maximum_suppression(
                 rmIdx.accessor<bool, 1>()[0] = true;
             }
 
-            Tensor weight = confScore.index(rmIdx).unsqueeze(0);
+            Tensor weight = confScore.index({rmIdx}).unsqueeze(0);
 
             // Find merged rbox
             Tensor rbox =

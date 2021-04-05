@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
+### Changed
+
+-   mAP evaluation will now punish duplicated detection.
+
 ### Fixed
 
 -   C++ API compatibility with PyTorch 1.8.0.

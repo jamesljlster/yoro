@@ -122,14 +122,24 @@ class YOROEvaluator(BaseEvaluator):
 
     def evaluate(self, dts_gts):
 
-        predPair = {idx: [] for idx in range(self.numClasses)}
-        gts = {}
+        # Record all detection truth and ground truth
+        def _build_truth_storage():
+            return (
+                {idx: {} for idx in range(self.numClasses)},
+                [list() for _ in range(len(dts_gts))]
+            )
+
+        dts, dtidPerImg = _build_truth_storage()
+        gts, gtidPerImg = _build_truth_storage()
+        gtidPerClass = [list() for _ in range(self.numClasses)]
+
+        apTable = [list() for _ in range(self.numClasses)]
 
         gtCounter = 0
-        for dataInd, (pred, gt) in enumerate(dts_gts):
+        dtCounter = 0
+        for imgInd, (pred, gt) in enumerate(dts_gts):
 
-            # Record ground truth
-            gtTmp = {}
+            # Convert ground truth
             for inst in gt:
 
                 gtId = gtCounter
@@ -144,86 +154,106 @@ class YOROEvaluator(BaseEvaluator):
                 gt.w = inst['w']
                 gt.h = inst['h']
 
-                gtTmp[gtId] = gt
+                gts[gtId] = gt
+                gtidPerImg[imgInd].append(gtId)
+                gtidPerClass[gt.label].append(gtId)
 
-            gts.update(gtTmp)
-
-            # Compare prediction with ground truths
+            # Record detection truth
             for dt in pred:
 
-                dtLabel = dt.label
-                dtConf = dt.conf
+                dtId = dtCounter
+                dtCounter += 1
 
-                # Find similarities between prediction and ground truths
-                paired = False
-                rboxSim = rbox_similarity(
-                    dt, [gtTmp[gtKey] for gtKey in gtTmp])
+                dts[dtId] = dt
+                dtidPerImg[imgInd].append(dtId)
 
-                if rboxSim is not None:
-                    highSim = (rboxSim >= self.simTh).squeeze(0)
-                    for gtKey, match in zip(gtTmp, highSim):
-                        if match:
-                            paired = True
-                            predPair[dtLabel].append({
-                                'conf': dtConf,
-                                'pred': dtLabel,
-                                'label': gtTmp[gtKey].label,
-                                'gtId': gtKey,
-                                'dataInd': dataInd
-                            })
+            # Detection result pairing
+            dtsPaired = []
 
-                if not paired:
-                    predPair[dtLabel].append({
-                        'conf': dtConf,
-                        'pred': dtLabel,
-                        'label': -1,
-                        'gtId': -1,
-                        'dataInd': dataInd
-                    })
+            dtIds = dtidPerImg[imgInd]
+            gtIds = gtidPerImg[imgInd]
+            scores = torch.stack([
+                rbox_similarity(dts[dtId], [gts[gtId] for gtId in gtIds])
+                for dtId in dtIds
+            ])
 
-        mAP = 0
-        for cId in predPair:
+            while torch.max(scores) > self.simTh:
 
-            results = predPair[cId]
-            results = sorted(
-                results, key=lambda inst: inst['conf'], reverse=True)
+                # Get the highest score for current iteration
+                score = torch.max(scores)
+                maxPos = torch.where(scores == score)
+                rowInd = maxPos[0][0]
+                colInd = maxPos[1][0]
 
-            # Find all ground truth keys with given class ID
-            gtKeys = [key for key in gts if gts[key].label == cId]
+                if dts[dtIds[rowInd]].label == gts[gtIds[colInd]].label:
 
-            gtHit = []
-            predHit = 0
-            r = [0.0]
-            p = [0.0]
-            for i, inst in enumerate(results):
+                    # Record this pair as true positive
+                    dtId = dtIds[rowInd]
+                    gtId = gtIds[colInd]
 
-                gtId = inst['gtId']
-                if gtId >= 0:
-                    if gtId not in gtHit:
-                        gtHit.append(inst['gtId'])
-                    if inst['pred'] == inst['label']:
-                        predHit += 1
+                    dtsPaired.append(dtId)
+                    apTable[dts[dtIds[rowInd]].label].append(
+                        (dts[dtId].conf, True)
+                    )
 
-                recall = len(gtHit) / len(gtKeys)
-                precision = predHit / (i + 1)
+                    # Clear matched dt and gt
+                    scores[rowInd, :] = -1
+                    scores[:, colInd] = -1
 
-                if recall not in r:
-                    r.append(recall)
-                    p.append(precision)
                 else:
-                    p[-1] = max(p[-1], precision)
 
-                if recall >= 1.0:
-                    break
+                    # Clear this score due to label mismatch
+                    scores[rowInd, colInd] = -1
 
-            ap = 0
-            for i in range(1, len(r)):
-                ap += (r[i] - r[i - 1]) * p[i]
+            # Record for false positive
+            for dtId in dtIds:
+                if dtId not in dtsPaired:
+                    apTable[dts[dtId].label].append(
+                        (dts[dtId].conf, False)
+                    )
 
-            mAP += ap
+        # Sort by confidence
+        for cId in range(self.numClasses):
+            apTable[cId] = sorted(
+                apTable[cId], key=lambda inst: inst[0], reverse=True)
 
-        mAP /= len(predPair)
-        return {'mAP': mAP}
+        # Find mean average precision
+        classAP = [0] * self.numClasses
+        hasInst = [0] * self.numClasses
+        for cId, chart in enumerate(apTable):
+
+            if len(chart) > 0:
+                hasInst[cId] = 1
+
+                recallHold = 0
+                recallCount = 0
+                tpCount = 0
+                fpCount = 0
+                tmpAP = 0
+
+                for conf, paired in chart:
+                    if paired:
+                        tpCount += 1
+                        recallCount += 1
+                    else:
+                        fpCount += 1
+
+                    precision = float(tpCount) / (tpCount + fpCount)
+                    recall = (
+                        float(tpCount) / (tpCount + len(gtidPerClass[cId]) - recallCount))
+                    tmpAP += (recall - recallHold) * precision
+
+                    recallHold = recall
+
+                classAP[cId] = tmpAP
+
+            else:
+                hasInst[cId] = 0
+
+        mAP = (torch.sum(torch.tensor(classAP)) /
+               torch.sum(torch.tensor(hasInst)))
+
+        return {'mAP': mAP.item()}
 
 
 def get_rbox_tensor(rbox):
@@ -239,4 +269,4 @@ def rbox_similarity(pred1, pred2):
             torch.tensor(
                 [get_rbox_tensor(rbox) for rbox in pred2],
                 dtype=torch.float32)
-        )
+        ).squeeze(0)

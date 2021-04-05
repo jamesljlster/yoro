@@ -172,38 +172,40 @@ class YOROEvaluator(BaseEvaluator):
 
             dtIds = dtidPerImg[imgInd]
             gtIds = gtidPerImg[imgInd]
-            scores = torch.stack([
-                rbox_similarity(dts[dtId], [gts[gtId] for gtId in gtIds])
-                for dtId in dtIds
-            ])
 
-            while torch.max(scores) > self.simTh:
+            if len(gtIds) > 0 and len(dtIds) > 0:
+                scores = torch.stack([
+                    rbox_similarity(dts[dtId], [gts[gtId] for gtId in gtIds])
+                    for dtId in dtIds
+                ])
 
-                # Get the highest score for current iteration
-                score = torch.max(scores)
-                maxPos = torch.where(scores == score)
-                rowInd = maxPos[0][0]
-                colInd = maxPos[1][0]
+                while torch.max(scores) > self.simTh:
 
-                if dts[dtIds[rowInd]].label == gts[gtIds[colInd]].label:
+                    # Get the highest score for current iteration
+                    score = torch.max(scores)
+                    maxPos = torch.where(scores == score)
+                    rowInd = maxPos[0][0]
+                    colInd = maxPos[1][0]
 
-                    # Record this pair as true positive
-                    dtId = dtIds[rowInd]
-                    gtId = gtIds[colInd]
+                    if dts[dtIds[rowInd]].label == gts[gtIds[colInd]].label:
 
-                    dtsPaired.append(dtId)
-                    apTable[dts[dtIds[rowInd]].label].append(
-                        (dts[dtId].conf, True)
-                    )
+                        # Record this pair as true positive
+                        dtId = dtIds[rowInd]
+                        gtId = gtIds[colInd]
 
-                    # Clear matched dt and gt
-                    scores[rowInd, :] = -1
-                    scores[:, colInd] = -1
+                        dtsPaired.append(dtId)
+                        apTable[dts[dtIds[rowInd]].label].append(
+                            (dts[dtId].conf, True)
+                        )
 
-                else:
+                        # Clear matched dt and gt
+                        scores[rowInd, :] = -1
+                        scores[:, colInd] = -1
 
-                    # Clear this score due to label mismatch
-                    scores[rowInd, colInd] = -1
+                    else:
+
+                        # Clear this score due to label mismatch
+                        scores[rowInd, colInd] = -1
 
             # Record for false positive
             for dtId in dtIds:

@@ -1,4 +1,5 @@
 from torchvision.transforms import functional as F
+from torchvision.transforms import functional_pil as F_pil
 from torchvision.transforms import ToTensor, RandomAffine, ColorJitter
 from PIL import Image, __version__ as PILLOW_VERSION
 import numpy as np
@@ -6,7 +7,8 @@ import torch
 import math
 
 
-def rbox_affine(sample, degree, translate, scale, resample=0, fillcolor=None):
+def rbox_affine(sample, degree, translate, scale,
+                interpolation=F.InterpolationMode.NEAREST, fill=0):
 
     image, anno = sample
     width, height = image.size
@@ -17,11 +19,11 @@ def rbox_affine(sample, degree, translate, scale, resample=0, fillcolor=None):
 
     # Apply image transformation
     matrix = F._get_inverse_affine_matrix(
-        (ctrX, ctrY), -degree, translate, scale, [0, 0])
+        [ctrX, ctrY], -degree, translate, scale, [0, 0])
 
-    kwargs = {"fillcolor": fillcolor} if PILLOW_VERSION[0] >= '5' else {}
-    image = image.transform(image.size, Image.AFFINE,
-                            matrix, resample, **kwargs)
+    pil_interpolation = F.pil_modes_mapping[interpolation]
+    image = F_pil.affine(
+        image, matrix=matrix, interpolation=pil_interpolation, fill=fill)
 
     # Find annotation transformation matrix
     rad = math.radians(degree)
@@ -79,26 +81,31 @@ class RBox_ColorJitter(object):
 
 class RBox_RandomAffine(object):
 
-    def __init__(self, degrees, translate=None, scale=None, resample=False, fillcolor=0):
+    def __init__(self, degrees, translate=None, scale=None,
+                 interpolation=F.InterpolationMode.NEAREST, fill=0):
 
         self.randAffine = RandomAffine(
             degrees, translate=translate, scale=scale, shear=None,
-            resample=resample, fillcolor=fillcolor)
+            interpolation=interpolation, fill=fill)
 
     def __call__(self, sample):
 
         degree, translate, scale, _ = self.randAffine.get_params(
-            self.randAffine.degrees, self.randAffine.translate, self.randAffine.scale,
-            self.randAffine.shear, sample[0].size)
+            degrees=self.randAffine.degrees,
+            translate=self.randAffine.translate,
+            scale_ranges=self.randAffine.scale,
+            shears=self.randAffine.shear,
+            img_size=sample[0].size)
 
         return rbox_affine(
             sample, degree, translate, scale,
-            resample=self.randAffine.resample, fillcolor=self.randAffine.fillcolor)
+            interpolation=self.randAffine.interpolation,
+            fill=self.randAffine.fill)
 
 
 class RBox_Resize(object):
 
-    def __init__(self, size, interpolation=2):
+    def __init__(self, size, interpolation=F.InterpolationMode.BILINEAR):
         self.size = size
         self.interpolation = interpolation
 

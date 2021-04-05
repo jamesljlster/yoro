@@ -27,11 +27,12 @@ class Rot_ColorJitter(RBox_ColorJitter):
 
 class Rot_RandomAffine(object):
 
-    def __init__(self, translate=None, scale=None, resample=False, fillcolor=0):
+    def __init__(self, translate=None, scale=None,
+                 interpolation=F.InterpolationMode.NEAREST, fill=0):
 
         self.randAffine = RandomAffine(
             0, translate=translate, scale=scale, shear=None,
-            resample=resample, fillcolor=fillcolor)
+            interpolation=interpolation, fill=fill)
 
     def __call__(self, sample):
 
@@ -43,7 +44,7 @@ class Rot_RandomAffine(object):
 
 class Rot_Resize(object):
 
-    def __init__(self, size, interpolation=2):
+    def __init__(self, size, interpolation=F.InterpolationMode.BILINEAR):
         self.size = size
         self.interpolation = interpolation
 

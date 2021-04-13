@@ -19,7 +19,7 @@ class YOROLayer(Module):
 
     def __init__(self, in_channels, num_classes,
                  width: int, height: int, fmap_width, fmap_height, anchor,
-                 deg_min=-180, deg_max=180, deg_part_size=10):
+                 deg_min=-180, deg_max=180, deg_part_size=10, conv_params={}):
 
         super(YOROLayer, self).__init__()
 
@@ -71,8 +71,17 @@ class YOROLayer(Module):
         self.fmapDepth = self.groupDepth * self.anchorSize
 
         # Build regressor
-        self.regressor = Conv2d(in_channels=in_channels, out_channels=self.fmapDepth,
-                                kernel_size=3, padding=1)
+        conv_params.pop('in_channels', None)
+        conv_params.pop('out_channels', None)
+        conv_params = {
+            'in_channels': in_channels,
+            'out_channels': self.fmapDepth,
+            'kernel_size': 1,
+            'padding': 0,
+            **conv_params
+        }
+
+        self.regressor = Conv2d(**conv_params)
 
     @torch.jit.export
     def predict(self, inputs):

@@ -63,6 +63,7 @@ class BaseTrain(object):
         self.maxEpoch = cfgTParam['max_epoch']
         self.estiEpoch = cfgTParam['esti_epoch']
         self.bakEpoch = cfgTParam['bak_epoch']
+        self.trainUnits = min(self.estiEpoch, self.bakEpoch)
 
         # Iterating index
         self.epoch = 0
@@ -118,8 +119,8 @@ class BaseTrain(object):
                 runLoss = info_add(runLoss, loss)
 
                 # Show training message
-                loop.set_description('Epoch %d/%d' %
-                                     (self.epoch + 1, self.maxEpoch))
+                loop.set_description('Epoch [%d-%d]/%d' % (
+                    self.epoch + 1, self.epoch + self.trainUnits, self.maxEpoch))
                 loop.set_postfix_str('loss: %s, %s' % (
                     info_represent(info_simplify(runLoss)),
                     info_represent(info_simplify(runInfo))
@@ -135,7 +136,7 @@ class BaseTrain(object):
                 }
 
             # Increase iterating index
-            self.epoch = self.epoch + 1
+            self.epoch = self.epoch + self.trainUnits
 
             # Validating
             if self.epoch % self.estiEpoch == 0:

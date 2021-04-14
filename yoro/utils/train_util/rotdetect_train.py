@@ -50,7 +50,8 @@ class RotLayerTrain(BaseTrain):
         # Configure dataset
         cfgData = cfg['dataset']
         trainSet = RBoxSample(
-            cfgData['train_dir'], cfgData['names_file'], transform=tfTrain)
+            cfgData['train_dir'], cfgData['names_file'], transform=tfTrain,
+            repeats=self.trainUnits)
         validSet = RBoxSample(
             cfgData['valid_dir'], cfgData['names_file'], transform=tfValid)
 

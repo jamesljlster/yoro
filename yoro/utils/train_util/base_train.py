@@ -15,7 +15,7 @@ from torchvision.transforms import Compose
 from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
     Rot_ColorJitter, Rot_RandomAffine, Rot_Resize, Rot_ToTensor
-from ..info_summarize import info_add, info_simplify, info_represent
+from ..info_summarize import info_moving_avg, info_add, info_simplify, info_represent
 
 
 def kpi_compare(old, new):
@@ -64,6 +64,7 @@ class BaseTrain(object):
         self.estiEpoch = cfgTParam['esti_epoch']
         self.bakEpoch = cfgTParam['bak_epoch']
 
+        self.movingFactor = cfgTParam.get('moving_factor', 0.01)
         self.trainUnits = cfgTParam.get('train_units', 0)
         if self.trainUnits <= 0:
             self.trainUnits = min(self.estiEpoch, self.bakEpoch)
@@ -118,8 +119,8 @@ class BaseTrain(object):
                 self.optimizer.step()
 
                 # Estimating
-                runInfo = info_add(runInfo, info)
-                runLoss = info_add(runLoss, loss)
+                runInfo = info_moving_avg(runInfo, info, self.movingFactor)
+                runLoss = info_moving_avg(runLoss, loss, self.movingFactor)
 
                 # Show training message
                 if self.trainUnits > 1:

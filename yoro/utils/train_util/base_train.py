@@ -71,6 +71,7 @@ class BaseTrain(object):
 
         # Iterating index
         self.epoch = 0
+        self.epochStart = 0
 
         # Evaluator callback
         self.evaluator = None
@@ -148,7 +149,7 @@ class BaseTrain(object):
             self.epoch = self.epoch + self.trainUnits
 
             # Validating
-            if self.epoch % self.estiEpoch == 0:
+            if (self.epoch - self.epochStart) % self.estiEpoch == 0:
                 validLoss, validEsti = self.valid(saveLog=saveLog)
 
                 # Compare kpi and save best weight
@@ -169,7 +170,7 @@ class BaseTrain(object):
                     print()
 
             # Backup
-            if self.epoch % self.bakEpoch == 0:
+            if (self.epoch - self.epochStart) % self.bakEpoch == 0:
                 self.backup()
 
     def valid(self, saveLog=False):
@@ -291,6 +292,7 @@ class BaseTrain(object):
 
         # Load parameters
         self.epoch = bak['epoch']
+        self.epochStart = self.epoch
 
         modelState = bak['model_state_dict']
         self.backbone.load_state_dict(modelState['backbone'])

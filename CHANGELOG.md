@@ -7,13 +7,51 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
+## \[0.2.1\] - 2021-04-19
+
+The release is for PyTorch 1.8 compatibility and small improvement on training utility.
+
+-   Training units:
+
+    Training units reduces iterating cost by concatenating several epochs into one iteration.  
+    The parameter can be set in `train_param / train_units`.
+
+    ``` yaml
+    train_param:
+      train_units: 0
+    ```
+
+    The setting values and corresponding behaviors for train\_units is shown below:
+
+    -   0: Auto selecting by `min(esti_epoch, bak_epoch)`.
+    -   &gt; 0: Using this value.
+
+    By default, train\_units will be zero if it is not presented in configuration file.
+
+-   Moving average for training informations:
+
+    Moving factor can be controlled by `train_param / moving_factor`.
+
+    ``` yaml
+    train_param:
+      moving_factor: 0.01
+    ```
+
+    By default, moving\_factor will be 0.01 if it is not presented in configuration file.
+
+### Added
+
+-   Iterating cost can be reduced by training units.
+
 ### Changed
 
+-   Training information is now presented by reduced by moving average.
 -   mAP evaluation will now punish duplicated detection.
+-   Transform functions is refactored with TorchVision 0.9.
 
 ### Fixed
 
--   C++ API compatibility with PyTorch 1.8.0.
+-   C++ API compatibility with PyTorch 1.8.
 
 ## \[0.2.0\] - 2021-03-14
 

@@ -18,6 +18,8 @@ construct:
 train_param:
   max_epoch: 30000
   esti_epoch: 100
+  train_units: 0
+  moving_factor: 0.01
   evaluator:
     conf_threshold: 0.5
     nms_threshold: 0.7

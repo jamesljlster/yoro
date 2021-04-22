@@ -42,9 +42,6 @@ set(LIB_DIR "lib/${PROJECT_NAME}")
 set(INC_DIR "include/${PROJECT_NAME}")
 set(EXPORT_DIR "lib/cmake/${PROJECT_NAME}")
 
-# Cache PyTorch library path
-get_filename_component(TORCH_LIB_PATH "${Torch_DIR}/../../../lib" ABSOLUTE)
-
 # Build library
 add_library(${PROJECT_NAME} ${PROJECT_SRCS})
 set_target_properties(${PROJECT_NAME} PROPERTIES

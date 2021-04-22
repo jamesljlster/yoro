@@ -13,6 +13,9 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 find_package(Torch REQUIRED)
 include_directories(${TORCH_INCLUDE_DIRS})
 
+get_filename_component(TORCH_LIB_PATH "${Torch_DIR}/../../../lib" ABSOLUTE)
+link_directories(${TORCH_LIB_PATH})
+
 # Find Python
 find_package(Python REQUIRED COMPONENTS Interpreter Development)
 include_directories(${Python_INCLUDE_DIRS})

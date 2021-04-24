@@ -1,12 +1,15 @@
 import torch
-from torch.nn import Module, Parameter, Conv2d
+from torch.nn import Module, ModuleList, Parameter, Conv2d
 from torch.nn import functional as F
+
+from typing import List, Dict
 
 from .functional import correlation_coefficient
 
 
 class YOROLayer(Module):
 
+    """
     __constants__ = [
         'numClasses', 'width', 'height', 'gridWidth', 'gridHeight',
         'anchorSize',
@@ -20,27 +23,69 @@ class YOROLayer(Module):
     def __init__(self, in_channels, num_classes,
                  width: int, height: int, fmap_width, fmap_height, anchor,
                  deg_min=-180, deg_max=180, deg_part_size=10, conv_params={}):
+    """
+
+    def __init__(self,
+                 width: int, height: int, num_classes: int,
+                 input_shapes: List[torch.Size], anchor: List[List[list]],
+                 deg_min: int = -180, deg_max: int = 180, deg_part_size: int = 10,
+                 conv_params: List[Dict] = []
+                 ):
 
         super(YOROLayer, self).__init__()
+
+        # Find head size
+        if isinstance(input_shapes, torch.Size):
+            input_shapes = [input_shapes]
+
+        headSize = len(input_shapes)
+
+        # Check convolution parameters
+        if isinstance(conv_params, dict):
+            conv_params = [conv_params] * headSize
+
+        assert len(conv_params) != headSize, \
+            'Numbers of \"conv_params\" does not match with desire head size.'
 
         # Save parameters
         self.numClasses = num_classes
         self.width = width
         self.height = height
-        self.gridWidth = width / fmap_width
-        self.gridHeight = height / fmap_height
+
+        self.headSize = headSize
+
+        self.gridWidth: List[float] = [
+            (width / size[3]) for size in input_shapes]
+        self.gridHeight: List[float] = [
+            (height / size[2]) for size in input_shapes]
 
         # Build anchor
-        self.anchor = Parameter(torch.FloatTensor(anchor), requires_grad=False)
-        self.anchorSize = self.anchor.size()[0]
+        if len(anchor) == 1:
+            anchor = [anchor] * headSize
 
-        self.anchor[:, 0] /= self.gridWidth
-        self.anchor[:, 1] /= self.gridHeight
+        self.anchorList: List[torch.nn.parameter.Parameter] = [
+            Parameter(torch.tensor(anc), requires_grad=False)
+            for anc in anchor]
+        self.anchorSizeList: List[int] = []
 
+        for ind, anc in enumerate(self.anchorList):
+            size, dim = anc.size()
+
+            # Check anchor format
+            assert dim == 2, \
+                'Anchor last dimension size is not 2 (width, height)'
+            self.anchorSizeList.append(size)
+
+            # Normalize anchor
+            self.anchorList[ind][:, 0] /= self.gridWidth[ind]
+            self.anchorList[ind][:, 1] /= self.gridHeight[ind]
+
+        """
         self.anchorW = Parameter(
             self.anchor[:, 0].view(1, -1, 1, 1).clone(), requires_grad=False)
         self.anchorH = Parameter(
             self.anchor[:, 1].view(1, -1, 1, 1).clone(), requires_grad=False)
+        """
 
         # Feature map specification construction: degree
         self.degMin = deg_min
@@ -49,8 +94,9 @@ class YOROLayer(Module):
 
         self.degPartSize = deg_part_size
         self.degValueScale = float(deg_part_size) / 2.0
-        self.degAnchor = Parameter(torch.arange(
-            start=deg_min, end=deg_max + deg_part_size, step=deg_part_size),
+        self.degAnchor = Parameter(
+            torch.arange(
+                start=deg_min, end=deg_max + deg_part_size, step=deg_part_size),
             requires_grad=False)
 
         self.degPartDepth = len(self.degAnchor)
@@ -67,24 +113,34 @@ class YOROLayer(Module):
         self.objDepth = 1
 
         # Feature map specification construction: final
-        self.groupDepth = self.objDepth + self.classDepth + self.bboxDepth + self.degDepth
-        self.fmapDepth = self.groupDepth * self.anchorSize
+        self.groupDepth = (
+            self.objDepth + self.classDepth + self.bboxDepth + self.degDepth)
+        self.fmapDepthList: List[int] = [
+            self.groupDepth * ancSize for ancSize in self.anchorSizeList]
 
         # Build regressor
-        conv_params.pop('in_channels', None)
-        conv_params.pop('out_channels', None)
-        conv_params = {
-            'in_channels': in_channels,
-            'out_channels': self.fmapDepth,
-            'kernel_size': 1,
-            'padding': 0,
-            **conv_params
-        }
+        if len(conv_params) == 1:
+            conv_params = [conv_params] * headSize
 
-        self.regressor = Conv2d(**conv_params)
+        regressor = []
+        for ind, conv_param in enumerate(conv_params):
+
+            conv_param.pop('in_channels', None)
+            conv_param.pop('out_channels', None)
+            conv_param = {
+                'in_channels': input_shapes[ind][1],
+                'out_channels': self.fmapDepth,
+                'kernel_size': 1,
+                'padding': 0,
+                **conv_params
+            }
+
+            regressor.append(Conv2d(**conv_param))
+
+        self.regressor = ModuleList(regressor)
 
     @torch.jit.export
-    def predict(self, inputs):
+    def predict(self, inputs: List[torch.Tensor]):
 
         # Get convolution outputs
         inputs = self.regressor(inputs)
@@ -123,7 +179,7 @@ class YOROLayer(Module):
 
         return (conf, cls, x, y, w, h, degPart, degShift)
 
-    def forward(self, inputs):
+    def forward(self, inputs: List[torch.Tensor]):
 
         (conf, cls, x, y, w, h, degPart, degShift) = self.predict(inputs)
 
@@ -149,10 +205,8 @@ class YOROLayer(Module):
             size[0], size[1], size[2], size[3], 4, device=inputs.device)
         pred_boxes[..., 0] = (x.data + gridX) * self.gridWidth
         pred_boxes[..., 1] = (y.data + gridY) * self.gridHeight
-        pred_boxes[..., 2] = \
-            torch.exp(w.data) * self.anchorW * self.gridWidth
-        pred_boxes[..., 3] = \
-            torch.exp(h.data) * self.anchorH * self.gridHeight
+        pred_boxes[..., 2] = torch.exp(w.data) * self.anchorW * self.gridWidth
+        pred_boxes[..., 3] = torch.exp(h.data) * self.anchorH * self.gridHeight
 
         idx = torch.argmax(degPart.data, dim=4)
         pred_deg = (self.degAnchor[idx] +

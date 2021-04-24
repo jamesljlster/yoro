@@ -2,7 +2,7 @@ import torch
 from torch.nn import Module, ModuleList, Parameter, Conv2d
 from torch.nn import functional as F
 
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 from .functional import correlation_coefficient
 
@@ -29,7 +29,7 @@ class YOROLayer(Module):
                  width: int, height: int, num_classes: int,
                  input_shapes: List[torch.Size], anchor: List[List[list]],
                  deg_min: int = -180, deg_max: int = 180, deg_part_size: int = 10,
-                 conv_params: List[Dict] = []
+                 conv_params: List[Dict] = [{}]
                  ):
 
         super(YOROLayer, self).__init__()
@@ -68,7 +68,7 @@ class YOROLayer(Module):
             for anc in anchor]
         self.anchorSizeList: List[int] = []
 
-        for ind, anc in enumerate(self.anchorList):
+        for i, anc in enumerate(self.anchorList):
             size, dim = anc.size()
 
             # Check anchor format
@@ -77,8 +77,8 @@ class YOROLayer(Module):
             self.anchorSizeList.append(size)
 
             # Normalize anchor
-            self.anchorList[ind][:, 0] /= self.gridWidth[ind]
-            self.anchorList[ind][:, 1] /= self.gridHeight[ind]
+            self.anchorList[i][:, 0] /= self.gridWidth[i]
+            self.anchorList[i][:, 1] /= self.gridHeight[i]
 
         """
         self.anchorW = Parameter(
@@ -120,19 +120,19 @@ class YOROLayer(Module):
 
         # Build regressor
         if len(conv_params) == 1:
-            conv_params = [conv_params] * headSize
+            conv_params = conv_params * headSize
 
         regressor = []
-        for ind, conv_param in enumerate(conv_params):
+        for i, conv_param in enumerate(conv_params):
 
             conv_param.pop('in_channels', None)
             conv_param.pop('out_channels', None)
             conv_param = {
-                'in_channels': input_shapes[ind][1],
-                'out_channels': self.fmapDepth,
+                'in_channels': input_shapes[i][1],
+                'out_channels': self.fmapDepthList[i],
                 'kernel_size': 1,
                 'padding': 0,
-                **conv_params
+                **conv_param
             }
 
             regressor.append(Conv2d(**conv_param))
@@ -140,44 +140,64 @@ class YOROLayer(Module):
         self.regressor = ModuleList(regressor)
 
     @torch.jit.export
+    def head_regression(self, inputs: List[torch.Tensor]) -> List[torch.Tensor]:
+
+        outputs: List[torch.Tensor] = []
+        for i, module in enumerate(self.regressor):
+            outputs.append(module(inputs[i]))
+
+        return outputs
+
+    @torch.jit.export
+    def head_slicing(self, inputs: List[torch.Tensor]) -> List[Tuple[torch.Tensor]]:
+
+        outputs: List[Tuple[torch.Tensor]] = []
+        for i, head in enumerate(inputs):
+
+            # Get tensor dimensions
+            batch = head.size(0)
+            fmapHeight = head.size(2)
+            fmapWidth = head.size(3)
+
+            # Rearange predict tensor
+            head = head.view(
+                batch, self.anchorSizeList[i], self.groupDepth, fmapHeight, fmapWidth)
+            head = head.permute(0, 1, 3, 4, 2).contiguous()
+
+            # Get outputs: objectness
+            base = 0
+            obj = torch.sigmoid(head[..., base])
+
+            # Get outputs: class
+            base += self.objDepth
+            cls = head[..., base:base + self.classDepth]
+
+            # Get outputs: bounding box
+            base += self.classDepth
+            x = torch.sigmoid(head[..., base + 0])
+            y = torch.sigmoid(head[..., base + 1])
+            w = head[..., base + 2]
+            h = head[..., base + 3]
+
+            # Get outputs: degree partition
+            base += self.bboxDepth
+            degPart = head[..., base:base + self.degPartDepth]
+
+            # Get outputs: degree value shift
+            base += self.degPartDepth
+            degShift = head[..., base:base + self.degValueDepth]
+
+            outputs.append((obj, cls, x, y, w, h, degPart, degShift))
+
+        return outputs
+
+    @torch.jit.export
     def predict(self, inputs: List[torch.Tensor]):
 
-        # Get convolution outputs
-        inputs = self.regressor(inputs)
+        x = self.head_regression(inputs)
+        x = self.head_slicing(x)
 
-        # Get tensor dimensions
-        batch = inputs.size()[0]
-        fmapHeight = inputs.size()[2]
-        fmapWidth = inputs.size()[3]
-
-        # Rearange predict tensor
-        pred = inputs.view(batch, self.anchorSize, self.groupDepth,
-                           fmapHeight, fmapWidth).permute(0, 1, 3, 4, 2).contiguous()
-
-        # Get outputs: objectness
-        base = 0
-        conf = torch.sigmoid(pred[..., base])
-
-        # Get outputs: class
-        base += self.objDepth
-        cls = pred[..., base:base + self.classDepth]
-
-        # Get outputs: bounding box
-        base += self.classDepth
-        x = torch.sigmoid(pred[..., base + 0])
-        y = torch.sigmoid(pred[..., base + 1])
-        w = pred[..., base + 2]
-        h = pred[..., base + 3]
-
-        # Get outputs: degree partition
-        base += self.bboxDepth
-        degPart = pred[..., base:base + self.degPartDepth]
-
-        # Get outputs: degree value shift
-        base += self.degPartDepth
-        degShift = pred[..., base:base + self.degValueDepth]
-
-        return (conf, cls, x, y, w, h, degPart, degShift)
+        return x
 
     def forward(self, inputs: List[torch.Tensor]):
 

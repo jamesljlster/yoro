@@ -1,4 +1,6 @@
 import torch
+from torch import Tensor
+
 from torch.nn import Module, ModuleList, Parameter, Conv2d
 from torch.nn import functional as F
 
@@ -76,13 +78,6 @@ class YOROLayer(Module):
                 'Anchor last dimension size is not 2 (width, height)'
             self.anchorSizeList.append(size)
 
-        """
-        self.anchorW = Parameter(
-            self.anchor[:, 0].view(1, -1, 1, 1).clone(), requires_grad=False)
-        self.anchorH = Parameter(
-            self.anchor[:, 1].view(1, -1, 1, 1).clone(), requires_grad=False)
-        """
-
         # Feature map specification construction: degree
         self.degMin = deg_min
         self.degMax = deg_max
@@ -136,18 +131,20 @@ class YOROLayer(Module):
         self.regressor = ModuleList(regressor)
 
     @torch.jit.export
-    def head_regression(self, inputs: List[torch.Tensor]) -> List[torch.Tensor]:
+    def head_regression(self, inputs: List[Tensor]) -> List[Tensor]:
 
-        outputs: List[torch.Tensor] = []
+        outputs: List[Tensor] = []
         for i, module in enumerate(self.regressor):
             outputs.append(module(inputs[i]))
 
         return outputs
 
     @torch.jit.export
-    def head_slicing(self, inputs: List[torch.Tensor]) -> List[Tuple[torch.Tensor]]:
+    def head_slicing(self, inputs: List[Tensor]) -> List[Tuple[
+            Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]]:
 
-        outputs: List[Tuple[torch.Tensor]] = []
+        outputs: List[Tuple[
+            Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]] = []
         for i, head in enumerate(inputs):
 
             # Get tensor dimensions
@@ -188,7 +185,8 @@ class YOROLayer(Module):
         return outputs
 
     @torch.jit.export
-    def predict(self, inputs: List[torch.Tensor]) -> List[Tuple[torch.Tensor]]:
+    def predict(self, inputs: List[Tensor]) -> List[Tuple[
+            Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]]:
 
         x = self.head_regression(inputs)
         x = self.head_slicing(x)
@@ -196,9 +194,11 @@ class YOROLayer(Module):
         return x
 
     @torch.jit.export
-    def decode(self, inputs: List[Tuple[torch.Tensor]]) -> List[Tuple[torch.Tensor]]:
+    def decode(self, inputs: List[Tuple[
+        Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]]) \
+            -> List[Tuple[Tensor, Tensor, Tensor, Tensor]]:
 
-        outputs: List[Tuple[torch.Tensor]] = []
+        outputs: List[Tuple[Tensor, Tensor, Tensor, Tensor]] = []
         for i, (obj, cls, x, y, w, h, degPart, degShift) in enumerate(inputs):
 
             # Detach tensors
@@ -246,7 +246,7 @@ class YOROLayer(Module):
 
         return outputs
 
-    def forward(self, inputs: List[torch.Tensor]) -> List[Tuple[torch.Tensor]]:
+    def forward(self, inputs: List[Tensor]) -> List[Tuple[Tensor, Tensor, Tensor, Tensor]]:
 
         x = self.predict(inputs)
         x = self.decode(x)

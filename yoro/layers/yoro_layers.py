@@ -31,7 +31,6 @@ class YOROLayer(Module):
                  width: int, height: int, num_classes: int,
                  input_shapes: List[torch.Size], anchor: List[List[list]],
                  deg_min: int = -180, deg_max: int = 180, deg_part_size: int = 10,
-                 xy_scale: float = 1.05,
                  conv_params: List[Dict] = [{}]
                  ):
 
@@ -61,8 +60,6 @@ class YOROLayer(Module):
             (width / size[3]) for size in input_shapes]
         self.gridHeight: List[float] = [
             (height / size[2]) for size in input_shapes]
-
-        self.xy_scale = xy_scale
 
         # Build anchor
         if len(anchor) == 1:
@@ -233,8 +230,8 @@ class YOROLayer(Module):
 
             boxes = torch.zeros(
                 batch, anchorSize, fmapHeight, fmapWidth, 4, device=device)
-            boxes[..., 0] = (x * self.xy_scale + gridX) * self.gridWidth[i]
-            boxes[..., 1] = (y * self.xy_scale + gridY) * self.gridHeight[i]
+            boxes[..., 0] = (x + gridX) * self.gridWidth[i]
+            boxes[..., 1] = (y + gridY) * self.gridHeight[i]
             boxes[..., 2] = \
                 torch.exp(w) * self.anchorList[i][:, 0].view(1, -1, 1, 1)
             boxes[..., 3] = \
@@ -275,8 +272,8 @@ class YOROLayer(Module):
 
                 tList.append([
                     n, anno['label'],
-                    anno['x'] / self.gridWidth,  # FIXME
-                    anno['y'] / self.gridHeight,  # FIXME
+                    anno['x'] / self.gridWidth,
+                    anno['y'] / self.gridHeight,
                     anno['w'], anno['h'],
                     degPartIdx.item(), degShiftValue.item()
                 ])
@@ -338,9 +335,9 @@ class YOROLayer(Module):
 
             # Bounding box loss
             xLoss = F.mse_loss(
-                x[n, acrIdx, yIdx, xIdx], xT - xT.floor(), reduction='sum')  # FIXME
+                x[n, acrIdx, yIdx, xIdx], xT - xT.floor(), reduction='sum')
             yLoss = F.mse_loss(
-                y[n, acrIdx, yIdx, xIdx], yT - yT.floor(), reduction='sum')  # FIXME
+                y[n, acrIdx, yIdx, xIdx], yT - yT.floor(), reduction='sum')
             wLoss = F.mse_loss(
                 w[n, acrIdx, yIdx, xIdx],
                 torch.log(wT / self.anchor[acrIdx, 0]),  # FIXME

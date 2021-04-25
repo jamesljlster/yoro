@@ -76,10 +76,6 @@ class YOROLayer(Module):
                 'Anchor last dimension size is not 2 (width, height)'
             self.anchorSizeList.append(size)
 
-            # Normalize anchor
-            self.anchorList[i][:, 0] /= self.gridWidth[i]
-            self.anchorList[i][:, 1] /= self.gridHeight[i]
-
         """
         self.anchorW = Parameter(
             self.anchor[:, 0].view(1, -1, 1, 1).clone(), requires_grad=False)
@@ -192,53 +188,70 @@ class YOROLayer(Module):
         return outputs
 
     @torch.jit.export
-    def predict(self, inputs: List[torch.Tensor]):
+    def predict(self, inputs: List[torch.Tensor]) -> List[Tuple[torch.Tensor]]:
 
         x = self.head_regression(inputs)
         x = self.head_slicing(x)
 
         return x
 
-    def forward(self, inputs: List[torch.Tensor]):
+    @torch.jit.export
+    def decode(self, inputs: List[Tuple[torch.Tensor]]) -> List[Tuple[torch.Tensor]]:
 
-        (conf, cls, x, y, w, h, degPart, degShift) = self.predict(inputs)
+        outputs: List[Tuple[torch.Tensor]] = []
+        for i, (obj, cls, x, y, w, h, degPart, degShift) in enumerate(inputs):
 
-        # Get tensor dimensions
-        batch = inputs.size()[0]
-        fmapHeight = inputs.size()[2]
-        fmapWidth = inputs.size()[3]
+            # Detach tensors
+            obj = obj.detach()
+            cls = cls.detach()
+            x = x.detach()
+            y = y.detach()
+            w = w.detach()
+            h = h.detach()
+            degPart = degPart.detach()
+            degShift = degShift.detach()
 
-        # Find grid x, y
-        gridY = (torch.arange(fmapHeight, dtype=inputs.dtype, device=inputs.device)
-                 .view(1, 1, fmapHeight, 1))
-        gridX = (torch.arange(fmapWidth, dtype=inputs.dtype, device=inputs.device)
-                 .view(1, 1, 1, fmapWidth))
+            # Cache dtype, device and dimensions
+            device = obj.device
+            dtype = obj.dtype
+            batch, anchorSize, fmapHeight, fmapWidth = obj.size()
 
-        # Decoding
-        pred_class = torch.argmax(cls.data, dim=4)
-        pred_class_conf = (torch.softmax(cls, dim=4)
-                           .gather(4, pred_class.unsqueeze(-1)).data)
-        pred_conf = conf.data * pred_class_conf.squeeze(-1)
+            # Find grid x, y
+            gridY = (torch.arange(fmapHeight, dtype=dtype, device=device)
+                     .view(1, 1, fmapHeight, 1))
+            gridX = (torch.arange(fmapWidth, dtype=dtype, device=device)
+                     .view(1, 1, 1, fmapWidth))
 
-        size = conf.size()
-        pred_boxes = torch.zeros(
-            size[0], size[1], size[2], size[3], 4, device=inputs.device)
-        pred_boxes[..., 0] = (x.data + gridX) * self.gridWidth
-        pred_boxes[..., 1] = (y.data + gridY) * self.gridHeight
-        pred_boxes[..., 2] = torch.exp(w.data) * self.anchorW * self.gridWidth
-        pred_boxes[..., 3] = torch.exp(h.data) * self.anchorH * self.gridHeight
+            # Decoding
+            label = torch.argmax(cls, dim=4)
+            labelConf = \
+                torch.softmax(cls, dim=4).gather(4, label.unsqueeze(-1))
+            conf = obj * labelConf.squeeze(-1)
 
-        idx = torch.argmax(degPart.data, dim=4)
-        pred_deg = (self.degAnchor[idx] +
-                    torch.gather(degShift.data, 4, idx.unsqueeze(-1)).squeeze(-1) *
-                    self.degValueScale)
+            boxes = torch.zeros(
+                batch, anchorSize, fmapHeight, fmapWidth, 4, device=device)
+            boxes[..., 0] = (x + gridX) * self.gridWidth[i]
+            boxes[..., 1] = (y + gridY) * self.gridHeight[i]
+            boxes[..., 2] = \
+                torch.exp(w) * self.anchorList[i][:, 0].view(1, -1, 1, 1)
+            boxes[..., 3] = \
+                torch.exp(h) * self.anchorList[i][:, 1].view(1, -1, 1, 1)
 
-        pred_conf = pred_conf.view(batch, -1)
-        pred_class = pred_class.view(batch, -1)
-        pred_boxes = pred_boxes.view(batch, -1, 4)
-        pred_deg = pred_deg.view(batch, -1)
+            idx = torch.argmax(degPart, dim=4)
+            degree = (self.degAnchor[idx] +
+                      torch.gather(degShift, 4, idx.unsqueeze(-1)).squeeze(-1) *
+                      self.degValueScale)
 
-        return (pred_conf, pred_class, pred_boxes, pred_deg)
+            outputs.append((conf, label, boxes, degree))
+
+        return outputs
+
+    def forward(self, inputs: List[torch.Tensor]) -> List[Tuple[torch.Tensor]]:
+
+        x = self.predict(inputs)
+        x = self.decode(x)
+
+        return x
 
     @torch.jit.unused
     def loss(self, inputs, targets):
@@ -264,8 +277,8 @@ class YOROLayer(Module):
                     n, anno['label'],
                     anno['x'] / self.gridWidth,
                     anno['y'] / self.gridHeight,
-                    anno['w'] / self.gridWidth,
-                    anno['h'] / self.gridHeight,
+                    anno['w'] / self.gridWidth,  # FIXME
+                    anno['h'] / self.gridHeight,  # FIXME
                     degPartIdx.item(), degShiftValue.item()
                 ])
 
@@ -294,7 +307,7 @@ class YOROLayer(Module):
             degShiftT = targets[:, 7]
 
             # Get anchor scores
-            acrScore = self.anchor_score(boxT[:, 2:])
+            acrScore = self.anchor_score(boxT[:, 2:])  # FIXME
             _, acrIdx = acrScore.max(dim=1)
 
             # Set mask
@@ -328,11 +341,11 @@ class YOROLayer(Module):
                 y[n, acrIdx, yIdx, xIdx], yT - yT.floor(), reduction='sum')
             wLoss = F.mse_loss(
                 w[n, acrIdx, yIdx, xIdx],
-                torch.log(wT / self.anchor[acrIdx, 0]),
+                torch.log(wT / self.anchor[acrIdx, 0]),  # FIXME
                 reduction='sum')
             hLoss = F.mse_loss(
                 h[n, acrIdx, yIdx, xIdx],
-                torch.log(hT / self.anchor[acrIdx, 1]),
+                torch.log(hT / self.anchor[acrIdx, 1]),  # FIXME
                 reduction='sum')
 
             boxLoss = xLoss + yLoss + wLoss + hLoss
@@ -385,7 +398,7 @@ class YOROLayer(Module):
         return loss, info
 
     @torch.jit.unused
-    def anchor_score(self, box):
+    def anchor_score(self, box):  # FIXME
 
         box = box.view(box.size()[0], -1, 2)
         anchor = self.anchor.to(box.device).unsqueeze(0)

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
+## \[0.2.2\] - 2021-04-26
+
+Small fix for package building.  
+CMake will now auto searching for required torch libraries.
+
+### Fixed
+
+-   Fix torch library searching under CMake build system.
+
 ## \[0.2.1\] - 2021-04-19
 
 The release is for PyTorch 1.8 compatibility and small improvement on training utility.

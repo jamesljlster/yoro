@@ -146,18 +146,18 @@ class YOROEvaluator(BaseEvaluator):
                 gtId = gtCounter
                 gtCounter += 1
 
-                gt = api.RBox()
-                gt.conf = 1.0
-                gt.label = inst['label']
-                gt.degree = inst['degree']
-                gt.x = inst['x']
-                gt.y = inst['y']
-                gt.w = inst['w']
-                gt.h = inst['h']
+                gtTmp = api.RBox()
+                gtTmp.conf = 1.0
+                gtTmp.label = inst['label']
+                gtTmp.degree = inst['degree']
+                gtTmp.x = inst['x']
+                gtTmp.y = inst['y']
+                gtTmp.w = inst['w']
+                gtTmp.h = inst['h']
 
-                gts[gtId] = gt
+                gts[gtId] = gtTmp
                 gtidPerImg[imgInd].append(gtId)
-                gtidPerClass[gt.label].append(gtId)
+                gtidPerClass[gtTmp.label].append(gtId)
 
             # Record detection truth
             for dt in pred:

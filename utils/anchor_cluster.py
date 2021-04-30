@@ -34,6 +34,8 @@ if __name__ == '__main__':
 
     argp.add_argument('path', metavar='dataset_path', type=str,
                       help='The folder contains image and annotation files')
+    argp.add_argument('width', type=int, help='Network input width')
+    argp.add_argument('height', type=int, help='Network input height')
     argp.add_argument('num', metavar='num_of_anchors', type=int,
                       help='Number of anchors')
 
@@ -45,12 +47,6 @@ if __name__ == '__main__':
                                 'moving distance equal or less then given value'))
     clustArg.add_argument('--device', type=str, default='cpu',
                           help='Running algorithm on given device')
-
-    netReso = argp.add_argument_group('Network resolution')
-    netReso.add_argument('--width', type=int, default=224,
-                         help='Network input width')
-    netReso.add_argument('--height', type=int, default=224,
-                         help='Network input height')
 
     args = argp.parse_args()
 

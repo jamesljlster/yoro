@@ -350,8 +350,12 @@ class YOROLayer(Module):
             objT = objMask.float()
             obj = predList[i][0]
 
-            objLoss += F.binary_cross_entropy(obj[objMask], objT[objMask])
-            nobjLoss += F.binary_cross_entropy(obj[nobjMask], objT[nobjMask])
+            if objMask.sum() > 0:
+                objLoss += \
+                    F.binary_cross_entropy(obj[objMask], objT[objMask])
+            if nobjMask.sum() > 0:
+                nobjLoss += \
+                    F.binary_cross_entropy(obj[nobjMask], objT[nobjMask])
 
         # Total loss
         loss = (

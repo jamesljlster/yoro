@@ -2,7 +2,7 @@ import math
 
 import torch
 from torch import Tensor
-from torch.nn import Module, ModuleList, Parameter, Conv2d
+from torch.nn import Module, ModuleList, ParameterList, Parameter, Conv2d
 from torch.nn import functional as F
 
 from typing import List, Dict, Tuple
@@ -66,9 +66,9 @@ class YOROLayer(Module):
         if len(anchor) == 1:
             anchor = [anchor] * headSize
 
-        self.anchorList: List[torch.nn.parameter.Parameter] = [
+        self.anchorList: torch.nn.parameter.ParameterList = ParameterList([
             Parameter(torch.tensor(anc), requires_grad=False)
-            for anc in anchor]
+            for anc in anchor])
         self.anchorSizeList: List[int] = []
 
         for i, anc in enumerate(self.anchorList):
@@ -217,6 +217,9 @@ class YOROLayer(Module):
             dtype = obj.dtype
             batch, anchorSize, fmapHeight, fmapWidth = obj.size()
 
+            # Cache anchor
+            anchor = self.anchorList[i]
+
             # Find grid x, y
             gridY = (torch.arange(fmapHeight, dtype=dtype, device=device)
                      .view(1, 1, fmapHeight, 1))
@@ -233,10 +236,8 @@ class YOROLayer(Module):
                 batch, anchorSize, fmapHeight, fmapWidth, 4, device=device)
             boxes[..., 0] = (x + gridX) * self.gridWidth[i]
             boxes[..., 1] = (y + gridY) * self.gridHeight[i]
-            boxes[..., 2] = \
-                torch.exp(w) * self.anchorList[i][:, 0].view(1, -1, 1, 1)
-            boxes[..., 3] = \
-                torch.exp(h) * self.anchorList[i][:, 1].view(1, -1, 1, 1)
+            boxes[..., 2] = torch.exp(w) * anchor[:, 0].view(1, -1, 1, 1)
+            boxes[..., 3] = torch.exp(h) * anchor[:, 1].view(1, -1, 1, 1)
 
             idx = torch.argmax(degPart, dim=4)
             degree = (self.degAnchor[idx] +
@@ -361,7 +362,7 @@ class YOROLayer(Module):
         loss = (
             objLoss + nobjLoss + clsLoss + boxLoss + degPartLoss + degShiftLoss)
 
-        return loss, {}
+        return (loss, 1), {}
 
     @torch.jit.unused
     def anchor_score(self, box):
@@ -378,7 +379,8 @@ class YOROLayer(Module):
             anchorIndices = torch.cat(
                 [anchorIndices, torch.arange(anchorSize)])
 
-        anchor = torch.cat(self.anchorList).to(box.device).unsqueeze(0)
+        anchor = torch.cat(
+            [anchor for anchor in self.anchorList]).to(box.device).unsqueeze(0)
 
         bw, bh = box[..., 0], box[..., 1]
         aw, ah = anchor[..., 0], anchor[..., 1]

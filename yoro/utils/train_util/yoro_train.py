@@ -100,9 +100,11 @@ class YOROTrain(BaseTrain):
             **cfgOptim['args'])
 
         # Configure evaluator and KPI
+        """
         self.evaluator = YOROEvaluator(
             num_classes=trainSet.numClasses,
             **cfgTParam['evaluator'])
+        """
 
         self.modelKpi = ['mAP']
 

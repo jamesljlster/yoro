@@ -1,12 +1,76 @@
+import unittest
 import torch
-
 from yoro.layers import YOROLayer
+
+
+class YOROLayer_UnitTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(self):
+
+        self.width = 224
+        self.height = 224
+        self.num_classes = 2
+
+        self.anchor = [[[21.39, 15.10], [55.22, 55.26], [64.18, 45.31]],
+                       [[78.89, 78.94], [91.68, 64.73]]]
+
+    def test_layer_construct(self):
+
+        inputs = [torch.randn(2, 256, 26, 26),
+                  torch.randn(2, 512, 13, 13)]
+        input_shapes = [ten.size() for ten in inputs]
+
+        yoro = YOROLayer(self.width, self.height, self.num_classes,
+                         input_shapes, self.anchor,
+                         deg_min=-45, deg_max=45, deg_part_size=10)
+
+    def test_tscp_compatibility(self):
+        """ Test for TorchScript compatibility """
+
+        inputs = [torch.randn(2, 256, 26, 26),
+                  torch.randn(2, 512, 13, 13)]
+        input_shapes = [ten.size() for ten in inputs]
+
+        yoro = torch.jit.script(
+            YOROLayer(self.width, self.height, self.num_classes,
+                      input_shapes, self.anchor,
+                      deg_min=-45, deg_max=45, deg_part_size=10))
+
+        yoro(inputs)
+
+    def test_conv_regression(self):
+
+        inputs = [torch.randn(2, 256, 26, 26),
+                  torch.randn(2, 512, 13, 13)]
+        input_shapes = [ten.size() for ten in inputs]
+
+        yoro = YOROLayer(self.width, self.height, self.num_classes,
+                         input_shapes, self.anchor,
+                         deg_min=-45, deg_max=45, deg_part_size=10)
+
+        out = yoro.head_regression(inputs)
+
+    def test_head_slicing(self):
+
+        inputs = [torch.randn(2, 256, 26, 26),
+                  torch.randn(2, 512, 13, 13)]
+        input_shapes = [ten.size() for ten in inputs]
+
+        yoro = YOROLayer(self.width, self.height, self.num_classes,
+                         input_shapes, self.anchor,
+                         deg_min=-45, deg_max=45, deg_part_size=10)
+
+        out = yoro.head_regression(inputs)
+
 
 width = 224
 height = 224
 num_classes = 2
 
 if __name__ == '__main__':
+
+    unittest.main()
 
     inputs = [torch.randn(2, 256, 26, 26),
               torch.randn(2, 512, 13, 13)]

@@ -77,16 +77,13 @@ class YOROTrain(BaseTrain):
         # Configure yoro layer
         src = torch.randn(1, 3, height, width)
         out = self.backbone(src.to(self.dev))
-        fmapSize = out.size()
 
         self.suffixClass = YOROLayer
         self.suffixArgs = {
-            'in_channels': fmapSize[1],
-            'num_classes': trainSet.numClasses,
             'width': width,
             'height': height,
-            'fmap_width': fmapSize[2],
-            'fmap_height': fmapSize[3],
+            'num_classes': trainSet.numClasses,
+            'input_shapes': [tensor.size() for tensor in out],
             'anchor': cfgCons['anchor'],
             'deg_min': cfgCons['deg_min'],
             'deg_max': cfgCons['deg_max'],

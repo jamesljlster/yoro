@@ -104,9 +104,9 @@ class YOROTrain(BaseTrain):
         self.evaluator = YOROEvaluator(
             num_classes=trainSet.numClasses,
             **cfgTParam['evaluator'])
-        """
 
         self.modelKpi = ['mAP']
+        """
 
 
 class YOROEvaluator(BaseEvaluator):

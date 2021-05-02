@@ -66,9 +66,8 @@ class YOROLayer(Module):
         if len(anchor) == 1:
             anchor = [anchor] * headSize
 
-        self.anchorList: torch.nn.parameter.ParameterList = ParameterList([
-            Parameter(torch.tensor(anc), requires_grad=False)
-            for anc in anchor])
+        self.anchorList: List[torch.Tensor] = [
+            torch.tensor(anc) for anc in anchor]
         self.anchorSizeList: List[int] = []
 
         for i, anc in enumerate(self.anchorList):
@@ -218,7 +217,7 @@ class YOROLayer(Module):
             batch, anchorSize, fmapHeight, fmapWidth = obj.size()
 
             # Cache anchor
-            anchor = self.anchorList[i]
+            anchor = self.anchorList[i].to(device)
 
             # Find grid x, y
             gridY = (torch.arange(fmapHeight, dtype=dtype, device=device)
@@ -228,8 +227,8 @@ class YOROLayer(Module):
 
             # Decoding
             label = torch.argmax(cls, dim=4)
-            labelConf = \
-                torch.softmax(cls, dim=4).gather(4, label.unsqueeze(-1))
+            labelConf = torch.softmax(cls, dim=4).gather(
+                4, label.unsqueeze(-1))
             conf = obj * labelConf.squeeze(-1)
 
             boxes = torch.zeros(
@@ -304,6 +303,7 @@ class YOROLayer(Module):
 
                 headIdx = headInd[maxIdx]
                 acrIdx = acrInd[maxIdx]
+                anchor = self.anchorList[headIdx].to(device)
 
                 # Normalize X, Y
                 xT /= self.gridWidth[headIdx]
@@ -327,12 +327,11 @@ class YOROLayer(Module):
                 # Bounding box loss
                 xLoss = F.mse_loss(x[n, acrIdx, yIdx, xIdx], xT - xIdx)
                 yLoss = F.mse_loss(y[n, acrIdx, yIdx, xIdx], yT - yIdx)
-                wLoss = F.mse_loss(
-                    w[n, acrIdx, yIdx, xIdx],
-                    torch.log(wT / self.anchorList[headIdx][acrIdx, 0]))
-                hLoss = F.mse_loss(
-                    h[n, acrIdx, yIdx, xIdx],
-                    torch.log(hT / self.anchorList[headIdx][acrIdx, 1]))
+
+                wLoss = F.mse_loss(w[n, acrIdx, yIdx, xIdx],
+                                   torch.log(wT / anchor[acrIdx, 0]))
+                hLoss = F.mse_loss(h[n, acrIdx, yIdx, xIdx],
+                                   torch.log(hT / anchor[acrIdx, 1]))
 
                 boxLoss += xLoss + yLoss + wLoss + hLoss
 

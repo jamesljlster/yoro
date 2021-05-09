@@ -55,12 +55,17 @@ if __name__ == '__main__':
     print('===============')
     print()
 
+    print(yoro.state_dict().keys())
+
     # Test TorchScript compatibility
     yoro = torch.jit.script(
         YOROLayer(width, height, num_classes, input_shapes, anchor,
                   deg_min=-45, deg_max=45, deg_part_size=10)
     )
 
+    print(yoro.state_dict().keys())
+
+    """
     # Test loss
     annoList = [
         [
@@ -75,7 +80,6 @@ if __name__ == '__main__':
     print('loss:', loss)
     print('accu:', accu)
 
-    """
     anchor = [[42.48, 45.48],
               [46.14, 34.85]]
     yoro = YOROLayer(in_channels=512, num_classes=2, width=224, height=224,

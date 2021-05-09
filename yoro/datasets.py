@@ -29,6 +29,18 @@ def rbox_collate_fn(samples):
     return images, annos
 
 
+def load_class_names(names_file):
+
+    # Load names from file
+    if names_file[0] == '~':
+        names_file = expanduser(names_file)
+
+    with open(names_file, 'r') as f:
+        classNames = yaml.load(f, Loader=yaml.FullLoader)
+
+    return classNames
+
+
 class RBoxSample(Dataset):
 
     def __init__(self, image_dir, names_file=None, transform=None, repeats=1):
@@ -58,13 +70,7 @@ class RBoxSample(Dataset):
 
         # Load names
         if names_file:
-
-            # Load names from file
-            if names_file[0] == '~':
-                names_file = expanduser(names_file)
-
-            self.classNames = yaml.load(
-                open(names_file, 'r'), Loader=yaml.FullLoader)
+            self.classNames = load_class_names(names_file)
             self.numClasses = len(self.classNames)
 
         else:

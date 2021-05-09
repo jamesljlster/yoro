@@ -1,10 +1,12 @@
+import yaml
+
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
 from ... import api
-from ...datasets import RBoxSample, rbox_collate_fn
+from ...datasets import RBoxSample, load_class_names
 from ...transforms import \
     RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToAspect, RBox_ToTensor
 from ...layers import YOROLayer
@@ -22,15 +24,50 @@ class YOROTrain(BaseTrain):
         # Get child config
         cfgCons = cfg['construct']
         cfgTParam = cfg['train_param']
+        cfgData = cfg['dataset']
 
         # Get network input size
         height = cfgCons['height']
         width = cfgCons['width']
 
-        # Configure data augmentation
+        # Configure backbone
+        cfgBBone = cfgCons['backbone']
+        self.bboneClass = load_object(cfgBBone['name'])
+        self.bboneArgs = cfgBBone['args']
+        self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
+
+        # Configure yoro layer
+        numClasses = len(load_class_names(cfgData['names_file']))
+
+        src = torch.randn(1, 3, height, width)
+        out = self.backbone(src.to(self.dev))
+
+        self.suffixClass = YOROLayer
+        self.suffixArgs = {
+            'width': width,
+            'height': height,
+            'num_classes': numClasses,
+            'input_shapes': [tensor.size() for tensor in out],
+            'anchor': cfgCons['anchor'],
+            'deg_min': cfgCons['deg_min'],
+            'deg_max': cfgCons['deg_max'],
+            'deg_part_size': cfgCons['deg_part_size']
+        }
+
+        self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
+
+        # Configure data transformation
         tfPrefix = [RBox_PadToAspect(float(width) / height)]
-        tfSuffix = [RBox_Resize((height, width)),
-                    RBox_ToTensor()]
+        tfSuffix = [
+            RBox_Resize((height, width)),
+            RBox_ToTensor(
+                self.suffix.anchorList,
+                [tup[0].size()[-3:] for tup in self.suffix(out)],
+                [torch.tensor([w, h])
+                    for (w, h) in zip(self.suffix.gridWidth, self.suffix.gridHeight)],
+                self.suffix.degAnchor.clone(),
+                self.suffix.degValueScale)
+        ]
 
         cfgTf = cfg['transform']
         tfContent = [
@@ -50,47 +87,108 @@ class YOROTrain(BaseTrain):
             else Compose(tfPrefix + tfSuffix)
 
         # Configure dataset
-        cfgData = cfg['dataset']
         trainSet = RBoxSample(
             cfgData['train_dir'], cfgData['names_file'], transform=tfTrain,
             repeats=self.trainUnits)
         validSet = RBoxSample(
             cfgData['valid_dir'], cfgData['names_file'], transform=tfValid)
 
+        # Collate function for data loader
+        def rbox_tensor_collate(samples):
+
+            # Target storage
+            def _build_target_storage():
+                return [[] for _ in range(self.suffix.headSize)]
+
+            objs = _build_target_storage()
+            batchT = _build_target_storage()
+
+            acrIdxT = _build_target_storage()
+            xIdxT = _build_target_storage()
+            yIdxT = _build_target_storage()
+            clsT = _build_target_storage()
+
+            xT = _build_target_storage()
+            yT = _build_target_storage()
+            wT = _build_target_storage()
+            hT = _build_target_storage()
+
+            degPartT = _build_target_storage()
+            degShiftT = _build_target_storage()
+
+            # Collate image and annotations
+            images = []
+            annos = []
+            for batchIdx, (image, anno) in enumerate(samples):
+                images.append(image)
+                for headIdx, obj in enumerate(anno[0]):
+                    objs[headIdx].append(obj)
+
+                acr, xIdx, yIdx, cls, x, y, w, h, degPart, degShift = anno[1][headIdx]
+
+                instSize = acr.size(0)
+                batchT[headIdx].append(
+                    torch.tensor([batchIdx] * instSize, dtype=torch.long))
+
+                acrIdxT[headIdx].append(acr)
+                xIdxT[headIdx].append(xIdx)
+                yIdxT[headIdx].append(yIdx)
+                clsT[headIdx].append(cls)
+                xT[headIdx].append(x)
+                yT[headIdx].append(y)
+                wT[headIdx].append(w)
+                hT[headIdx].append(h)
+                degPartT[headIdx].append(degPart)
+                degShiftT[headIdx].append(degShift)
+
+            images = torch.stack(images, 0)
+            objs = [torch.stack(obj, 0) for obj in objs]
+
+            def _gt_cat(gt_list, dtype=torch.float):
+                return [torch.cat(tens) if len(tens) > 0 else torch.tensor([], dtype=dtype)
+                        for tens in gt_list]
+
+            batchT = _gt_cat(batchT, torch.long)
+            acrIdxT = _gt_cat(acrIdxT, torch.long)
+            xIdxT = _gt_cat(xIdxT, torch.long)
+            yIdxT = _gt_cat(yIdxT, torch.long)
+            clsT = _gt_cat(clsT, torch.long)
+            xT = _gt_cat(xT)
+            yT = _gt_cat(yT)
+            wT = _gt_cat(wT)
+            hT = _gt_cat(hT)
+            degPartT = _gt_cat(degPartT, torch.long)
+            degShiftT = _gt_cat(degShiftT)
+
+            targets = []
+            for headIdx in range(self.suffix.headSize):
+                targets.append((
+                    batchT[headIdx],
+                    acrIdxT[headIdx],
+                    xIdxT[headIdx],
+                    yIdxT[headIdx],
+                    clsT[headIdx],
+                    xT[headIdx],
+                    yT[headIdx],
+                    wT[headIdx],
+                    hT[headIdx],
+                    degPartT[headIdx],
+                    degShiftT[headIdx])
+                )
+
+            return images, (objs, targets)
+
+        # Configure data loader
         self.traLoader = DataLoader(
-            trainSet, shuffle=True, collate_fn=rbox_collate_fn,
+            trainSet, shuffle=True, collate_fn=rbox_tensor_collate,
             batch_size=cfgTParam['batch'],
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'])
         self.tstLoader = DataLoader(
-            validSet, shuffle=False, collate_fn=rbox_collate_fn,
+            validSet, shuffle=False, collate_fn=rbox_tensor_collate,
             batch_size=cfgTParam['batch'],
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'])
-
-        # Configure backbone
-        cfgBBone = cfgCons['backbone']
-        self.bboneClass = load_object(cfgBBone['name'])
-        self.bboneArgs = cfgBBone['args']
-        self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
-
-        # Configure yoro layer
-        src = torch.randn(1, 3, height, width)
-        out = self.backbone(src.to(self.dev))
-
-        self.suffixClass = YOROLayer
-        self.suffixArgs = {
-            'width': width,
-            'height': height,
-            'num_classes': trainSet.numClasses,
-            'input_shapes': [tensor.size() for tensor in out],
-            'anchor': cfgCons['anchor'],
-            'deg_min': cfgCons['deg_min'],
-            'deg_max': cfgCons['deg_max'],
-            'deg_part_size': cfgCons['deg_part_size']
-        }
-
-        self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
 
         # Configure optimizer
         cfgOptim = cfgTParam['optimizer']

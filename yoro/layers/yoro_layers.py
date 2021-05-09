@@ -85,10 +85,8 @@ class YOROLayer(Module):
 
         self.degPartSize = deg_part_size
         self.degValueScale = float(deg_part_size) / 2.0
-        self.degAnchor = Parameter(
-            torch.arange(
-                start=deg_min, end=deg_max + deg_part_size, step=deg_part_size),
-            requires_grad=False)
+        self.degAnchor = torch.arange(
+            start=deg_min, end=deg_max + deg_part_size, step=deg_part_size)
 
         self.degPartDepth = len(self.degAnchor)
         self.degValueDepth = len(self.degAnchor)
@@ -218,6 +216,7 @@ class YOROLayer(Module):
 
             # Cache anchor
             anchor = self.anchorList[i].to(device)
+            degAnchor = self.degAnchor.to(device)
 
             # Find grid x, y
             gridY = (torch.arange(fmapHeight, dtype=dtype, device=device)
@@ -239,7 +238,7 @@ class YOROLayer(Module):
             boxes[..., 3] = torch.exp(h) * anchor[:, 1].view(1, -1, 1, 1)
 
             idx = torch.argmax(degPart, dim=4)
-            degree = (self.degAnchor[idx] +
+            degree = (degAnchor[idx] +
                       torch.gather(degShift, 4, idx.unsqueeze(-1)).squeeze(-1) *
                       self.degValueScale)
 
@@ -264,127 +263,69 @@ class YOROLayer(Module):
         predList = self.predict(inputs)
 
         # Mask of feature map
-        objMaskList = [
-            torch.full_like(pred[0], False, dtype=torch.bool, device=device)
-            for pred in predList]
-        nobjMaskList = [
-            torch.full_like(pred[0], True, dtype=torch.bool, device=device)
-            for pred in predList]
+        objMaskList = targets[0]
 
         # Compute loss for rotated bounding box
+        objLoss = torch.tensor([0], dtype=dtype, device=device)
+        nobjLoss = torch.tensor([0], dtype=dtype, device=device)
         clsLoss = torch.tensor([0], dtype=dtype, device=device)
         boxLoss = torch.tensor([0], dtype=dtype, device=device)
         degPartLoss = torch.tensor([0], dtype=dtype, device=device)
         degShiftLoss = torch.tensor([0], dtype=dtype, device=device)
 
-        for n, anno in enumerate(targets):
-            for inst in anno:
+        for headIdx, objMask in enumerate(objMaskList):
 
-                def default_scalar_tensor(val):
-                    return torch.tensor([val], dtype=dtype, device=device)
+            nobjMask = (objMask == False)
+            objT = objMask.float()
 
-                # Build target
-                clsT = torch.tensor(
-                    [inst['label']], dtype=torch.long, device=device)
+            # Extract tensor
+            #   Predict: [conf, cls, x, y, w, h, degPart, degShift]
+            #   Index:   [   0,   1, 2, 3, 4, 5,       6,        7]
+            (obj, cls, x, y, w, h, degPart, degShift) = predList[headIdx]
 
-                xT = default_scalar_tensor(inst['x'])
-                yT = default_scalar_tensor(inst['y'])
-                wT = default_scalar_tensor(inst['w'])
-                hT = default_scalar_tensor(inst['h'])
+            # Accumulate loss
+            if objMask.sum() > 0:
 
-                degDiff = inst['degree'] - self.degAnchor
-                degPartT = torch.argmin(torch.abs(degDiff)).unsqueeze(0)
-                degShifT = (degDiff[degPartT] / self.degValueScale)
+                # Objectness loss
+                objLoss += F.binary_cross_entropy(
+                    obj[objMask], objT[objMask].to(device), reduction='sum')
 
-                # Get anchor scores
-                headInd, acrInd, acrScore = self.anchor_score(
-                    torch.tensor([[wT, hT]], dtype=dtype, device=device))
-                _, maxIdx = acrScore.max(dim=1)
-
-                headIdx = headInd[maxIdx]
-                acrIdx = acrInd[maxIdx]
-                anchor = self.anchorList[headIdx].to(device)
-
-                # Normalize X, Y
-                xT /= self.gridWidth[headIdx]
-                yT /= self.gridHeight[headIdx]
-
-                xIdx = xT.floor().long()
-                yIdx = yT.floor().long()
-
-                # Set mask
-                objMaskList[headIdx][n, acrIdx, yIdx, xIdx] = True
-                nobjMaskList[headIdx][n, acrIdx, yIdx, xIdx] = False
-
-                # Extract tensor
-                #   Predict: [conf, cls, x, y, w, h, degPart, degShift]
-                #   Index:   [   0,   1, 2, 3, 4, 5,       6,        7]
-                (obj, cls, x, y, w, h, degPart, degShift) = predList[headIdx]
+                # Extract targets
+                batchT, acrIdxT, xIdxT, yIdxT, clsT, xT, yT, wT, hT, degPartT, degShiftT = \
+                    targets[1][headIdx]
 
                 # Class loss
-                clsLoss += F.cross_entropy(cls[n, acrIdx, yIdx, xIdx], clsT)
+                clsLoss += F.cross_entropy(
+                    cls[batchT, acrIdxT, yIdxT, xIdxT], clsT.to(device), reduction='sum')
 
                 # Bounding box loss
-                xLoss = F.mse_loss(x[n, acrIdx, yIdx, xIdx], xT - xIdx)
-                yLoss = F.mse_loss(y[n, acrIdx, yIdx, xIdx], yT - yIdx)
+                xLoss = F.mse_loss(
+                    x[batchT, acrIdxT, yIdxT, xIdxT], xT.to(device), reduction='sum')
+                yLoss = F.mse_loss(
+                    y[batchT, acrIdxT, yIdxT, xIdxT], yT.to(device), reduction='sum')
+                wLoss = F.mse_loss(
+                    w[batchT, acrIdxT, yIdxT, xIdxT], wT.to(device), reduction='sum')
+                hLoss = F.mse_loss(
+                    h[batchT, acrIdxT, yIdxT, xIdxT], hT.to(device), reduction='sum')
 
-                wLoss = F.mse_loss(w[n, acrIdx, yIdx, xIdx],
-                                   torch.log(wT / anchor[acrIdx, 0]))
-                hLoss = F.mse_loss(h[n, acrIdx, yIdx, xIdx],
-                                   torch.log(hT / anchor[acrIdx, 1]))
-
-                boxLoss += xLoss + yLoss + wLoss + hLoss
+                boxLoss = xLoss + yLoss + wLoss + hLoss
 
                 # Degree loss
-                degPartLoss += F.cross_entropy(
-                    degPart[n, acrIdx, yIdx, xIdx], degPartT)
-                degShiftLoss += F.mse_loss(
-                    degShift[n, acrIdx, yIdx, xIdx, degPartT], degShifT)
+                degPartLoss = F.cross_entropy(
+                    degPart[batchT, acrIdxT, yIdxT, xIdxT],
+                    degPartT.to(device), reduction='sum')
+                degShiftLoss = F.mse_loss(
+                    degShift[batchT, acrIdxT, yIdxT, xIdxT, degPartT],
+                    degShiftT.to(device), reduction='sum')
 
-        # Objectness loss
-        objLoss = torch.tensor([0], dtype=dtype, device=device)
-        nobjLoss = torch.tensor([0], dtype=dtype, device=device)
-
-        for i, (objMask, nobjMask) in enumerate(zip(objMaskList, nobjMaskList)):
-
-            objT = objMask.float()
-            obj = predList[i][0]
-
-            if objMask.sum() > 0:
-                objLoss += \
-                    F.binary_cross_entropy(obj[objMask], objT[objMask])
             if nobjMask.sum() > 0:
-                nobjLoss += \
-                    F.binary_cross_entropy(obj[nobjMask], objT[nobjMask])
+
+                # Objectness loss
+                nobjLoss += F.binary_cross_entropy(
+                    obj[nobjMask], objT[nobjMask].to(device), reduction='sum')
 
         # Total loss
         loss = (
             objLoss + nobjLoss + clsLoss + boxLoss + degPartLoss + degShiftLoss)
 
         return (loss, 1), {}
-
-    @torch.jit.unused
-    def anchor_score(self, box):
-
-        box = box.view(box.size(0), -1, 2)
-
-        headIndices = torch.tensor([], dtype=torch.long)
-        anchorIndices = torch.tensor([], dtype=torch.long)
-        for i, anchor in enumerate(self.anchorList):
-
-            anchorSize = anchor.size(0)
-            headIndices = torch.cat(
-                [headIndices, torch.full((anchorSize,), i)])
-            anchorIndices = torch.cat(
-                [anchorIndices, torch.arange(anchorSize)])
-
-        anchor = torch.cat(
-            [anchor for anchor in self.anchorList]).to(box.device).unsqueeze(0)
-
-        bw, bh = box[..., 0], box[..., 1]
-        aw, ah = anchor[..., 0], anchor[..., 1]
-
-        interArea = torch.min(bw, aw) * torch.min(bh, ah)
-        unionArea = bw * bh + aw * ah - interArea
-
-        return headIndices, anchorIndices, (interArea / (unionArea + 1e-8))

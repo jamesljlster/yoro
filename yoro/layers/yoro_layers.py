@@ -308,13 +308,13 @@ class YOROLayer(Module):
                 hLoss = F.mse_loss(
                     h[batchT, acrIdxT, yIdxT, xIdxT], hT.to(device), reduction='sum')
 
-                boxLoss = xLoss + yLoss + wLoss + hLoss
+                boxLoss += xLoss + yLoss + wLoss + hLoss
 
                 # Degree loss
-                degPartLoss = F.cross_entropy(
+                degPartLoss += F.cross_entropy(
                     degPart[batchT, acrIdxT, yIdxT, xIdxT],
                     degPartT.to(device), reduction='sum')
-                degShiftLoss = F.mse_loss(
+                degShiftLoss += F.mse_loss(
                     degShift[batchT, acrIdxT, yIdxT, xIdxT, degPartT],
                     degShiftT.to(device), reduction='sum')
 

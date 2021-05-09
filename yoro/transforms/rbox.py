@@ -238,17 +238,20 @@ class TargetBuilder(object):
         objs = [torch.zeros(size, dtype=torch.bool) for size in self.objDims]
 
         # Target storage
-        acrIdxT = [[] for _ in range(len(self.objDims))]
-        xIdxT = [[] for _ in range(len(self.objDims))]
-        yIdxT = [[] for _ in range(len(self.objDims))]
+        def _build_target_storage():
+            return [[] for _ in range(len(self.objDims))]
 
-        xT = [[] for _ in range(len(self.objDims))]
-        yT = [[] for _ in range(len(self.objDims))]
-        wT = [[] for _ in range(len(self.objDims))]
-        hT = [[] for _ in range(len(self.objDims))]
+        acrIdxT = _build_target_storage()
+        xIdxT = _build_target_storage()
+        yIdxT = _build_target_storage()
 
-        degPartT = [[] for _ in range(len(self.objDims))]
-        degShiftT = [[] for _ in range(len(self.objDims))]
+        xT = _build_target_storage()
+        yT = _build_target_storage()
+        wT = _build_target_storage()
+        hT = _build_target_storage()
+
+        degPartT = _build_target_storage()
+        degShiftT = _build_target_storage()
 
         # Tensorlize
         boxesSize = torch.tensor(
@@ -339,16 +342,21 @@ class TargetBuilder(object):
 
 class RBox_ToTensor(object):
 
-    def __init__(self):
+    def __init__(self, anchor_list, obj_dims, grid_size, deg_anchor, deg_scale):
 
         # Image transform
         self.toTensor = ToTensor()
+
+        # Annotation transform
+        self.tgtBuilder = TargetBuilder(
+            anchor_list, obj_dims, grid_size, deg_anchor, deg_scale)
 
     def __call__(self, sample):
 
         image, anno = sample
 
-        # Apply image transform
+        # Apply transformation
         image = self.toTensor(image)
+        anno = self.tgtBuilder(anno)
 
         return (image, anno)

@@ -244,6 +244,7 @@ class TargetBuilder(object):
         acrIdxT = _build_target_storage()
         xIdxT = _build_target_storage()
         yIdxT = _build_target_storage()
+        clsT = _build_target_storage()
 
         xT = _build_target_storage()
         yT = _build_target_storage()
@@ -262,59 +263,73 @@ class TargetBuilder(object):
             [[anno['x'], anno['y']] for anno in anno_list],
             dtype=torch.float)
 
+        labels = torch.tensor([anno['label'] for anno in anno_list])
         degrees = torch.tensor([anno['degree'] for anno in anno_list])
 
         # Find anchor score for boxes
-        headInd, acrInd, acrScores = self.anchor_score(boxesSize)
+        ret = self.anchor_score(boxesSize)
+        if ret is not None:
+            headInd, acrInd, acrScores = ret
 
-        # Anchor matching
-        while True:
+            # Anchor matching
+            while True:
 
-            maxScore = torch.max(acrScores)
-            if maxScore < 0:
-                break
+                maxScore = torch.max(acrScores)
+                if maxScore < 0:
+                    break
 
-            maxInd = torch.where(acrScores == maxScore)
-            rowInd = maxInd[0][0]
-            colInd = maxInd[1][0]
+                maxInd = torch.where(acrScores == maxScore)
+                rowInd = maxInd[0][0]
+                colInd = maxInd[1][0]
 
-            headIdx = headInd[colInd]
-            acrIdx = acrInd[colInd]
+                headIdx = headInd[colInd]
+                acrIdx = acrInd[colInd]
 
-            normCoord = boxesCoord[rowInd] / self.gridSize[headIdx]
-            xIdx, yIdx = torch.floor(normCoord).to(torch.long)
+                normCoord = boxesCoord[rowInd] / self.gridSize[headIdx]
+                xIdx, yIdx = torch.floor(normCoord).to(torch.long)
 
-            if objs[headIdx][acrIdx, yIdx, xIdx]:
-                acrScores[rowInd, colInd] = -1
-            else:
-                objs[headIdx][acrIdx, yIdx, xIdx] = True
-                acrScores[rowInd, :] = -1
+                if objs[headIdx][acrIdx, yIdx, xIdx]:
+                    acrScores[rowInd, colInd] = -1
+                else:
+                    objs[headIdx][acrIdx, yIdx, xIdx] = True
+                    acrScores[rowInd, :] = -1
 
-                # Target encoding
-                acrIdxT[headIdx].append(acrIdx)
-                xIdxT[headIdx].append(xIdx)
-                yIdxT[headIdx].append(yIdx)
+                    # Target encoding
+                    acrIdxT[headIdx].append(acrIdx)
+                    xIdxT[headIdx].append(xIdx)
+                    yIdxT[headIdx].append(yIdx)
+                    clsT[headIdx].append(labels[rowInd])
 
-                xT[headIdx].append(normCoord[0] - xIdx)
-                yT[headIdx].append(normCoord[1] - yIdx)
+                    xT[headIdx].append(normCoord[0] - xIdx)
+                    yT[headIdx].append(normCoord[1] - yIdx)
 
-                normSize = torch.log(
-                    boxesSize[rowInd] / self.anchorList[headIdx][acrIdx])
-                wT[headIdx].append(normSize[0])
-                hT[headIdx].append(normSize[1])
+                    normSize = torch.log(
+                        boxesSize[rowInd] / self.anchorList[headIdx][acrIdx])
+                    wT[headIdx].append(normSize[0])
+                    hT[headIdx].append(normSize[1])
 
-                degDiff = degrees[rowInd] - self.degAnchor
-                degPartIdx = torch.argmin(torch.abs(degDiff))
-                degPartT[headIdx].append(degPartIdx)
-                degShiftT[headIdx].append(degDiff[degPartIdx] / self.degScale)
+                    degDiff = degrees[rowInd] - self.degAnchor
+                    degPartIdx = torch.argmin(torch.abs(degDiff))
+                    degPartT[headIdx].append(degPartIdx)
+                    degShiftT[headIdx].append(
+                        degDiff[degPartIdx] / self.degScale)
 
         targets = [
-            [torch.tensor(elem) for elem in tup]
-            for tup in zip(acrIdxT, xIdxT, yIdxT, xT, yT, wT, hT, degPartT, degShiftT)]
+            [torch.tensor(elem, dtype=dtype) for (elem, dtype) in
+                zip(tup, [torch.long, torch.long, torch.long, torch.long,
+                          torch.float, torch.float, torch.float, torch.float,
+                          torch.long, torch.float
+                          ])]
+            for tup in zip(acrIdxT, xIdxT, yIdxT, clsT,
+                           xT, yT, wT, hT,
+                           degPartT, degShiftT)]
 
         return objs, targets
 
     def anchor_score(self, box):
+
+        if box.size(0) == 0:
+            return None
 
         box = box.view(box.size(0), -1, 2)
 

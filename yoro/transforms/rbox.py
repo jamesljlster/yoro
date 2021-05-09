@@ -6,6 +6,8 @@ import numpy as np
 import torch
 import math
 
+from typing import List, Dict, Tuple
+
 
 def rbox_affine(sample, degree, translate, scale,
                 interpolation=F.InterpolationMode.NEAREST, fill=0):
@@ -218,6 +220,121 @@ class RBox_PadToSquare(object):
                       fill=self.fill, padding_mode=self.padding_mode)
 
         return (image, newAnno)
+
+
+class TargetBuilder(object):
+
+    def __init__(self, anchor_list, obj_dims, grid_size, deg_anchor, deg_scale):
+
+        self.anchorList = anchor_list
+        self.objDims = obj_dims
+        self.gridSize = grid_size
+        self.degAnchor = deg_anchor
+        self.degScale = deg_scale
+
+    def __call__(self, anno_list):
+
+        # Build objectness mask
+        objs = [torch.zeros(size, dtype=torch.bool) for size in self.objDims]
+
+        # Target storage
+        acrIdxT = [[] for _ in range(len(self.objDims))]
+        xIdxT = [[] for _ in range(len(self.objDims))]
+        yIdxT = [[] for _ in range(len(self.objDims))]
+
+        xT = [[] for _ in range(len(self.objDims))]
+        yT = [[] for _ in range(len(self.objDims))]
+        wT = [[] for _ in range(len(self.objDims))]
+        hT = [[] for _ in range(len(self.objDims))]
+
+        degPartT = [[] for _ in range(len(self.objDims))]
+        degShiftT = [[] for _ in range(len(self.objDims))]
+
+        # Tensorlize
+        boxesSize = torch.tensor(
+            [[anno['w'], anno['h']] for anno in anno_list],
+            dtype=torch.float)
+
+        boxesCoord = torch.tensor(
+            [[anno['x'], anno['y']] for anno in anno_list],
+            dtype=torch.float)
+
+        degrees = torch.tensor([anno['degree'] for anno in anno_list])
+
+        # Find anchor score for boxes
+        headInd, acrInd, acrScores = self.anchor_score(boxesSize)
+
+        # Anchor matching
+        while True:
+
+            maxScore = torch.max(acrScores)
+            if maxScore < 0:
+                break
+
+            maxInd = torch.where(acrScores == maxScore)
+            rowInd = maxInd[0][0]
+            colInd = maxInd[1][0]
+
+            headIdx = headInd[colInd]
+            acrIdx = acrInd[colInd]
+
+            normCoord = boxesCoord[rowInd] / self.gridSize[headIdx]
+            xIdx, yIdx = torch.floor(normCoord).to(torch.long)
+
+            if objs[headIdx][acrIdx, yIdx, xIdx]:
+                acrScores[rowInd, colInd] = -1
+            else:
+                objs[headIdx][acrIdx, yIdx, xIdx] = True
+                acrScores[rowInd, :] = -1
+
+                # Target encoding
+                acrIdxT[headIdx].append(acrIdx)
+                xIdxT[headIdx].append(xIdx)
+                yIdxT[headIdx].append(yIdx)
+
+                xT[headIdx].append(normCoord[0] - xIdx)
+                yT[headIdx].append(normCoord[1] - yIdx)
+
+                normSize = torch.log(
+                    boxesSize[rowInd] / self.anchorList[headIdx][acrIdx])
+                wT[headIdx].append(normSize[0])
+                hT[headIdx].append(normSize[1])
+
+                degDiff = degrees[rowInd] - self.degAnchor
+                degPartIdx = torch.argmin(torch.abs(degDiff))
+                degPartT[headIdx].append(degPartIdx)
+                degShiftT[headIdx].append(degDiff[degPartIdx] / self.degScale)
+
+        targets = [
+            [torch.tensor(elem) for elem in tup]
+            for tup in zip(acrIdxT, xIdxT, yIdxT, xT, yT, wT, hT, degPartT, degShiftT)]
+
+        return objs, targets
+
+    def anchor_score(self, box):
+
+        box = box.view(box.size(0), -1, 2)
+
+        headIndices = torch.tensor([], dtype=torch.long)
+        anchorIndices = torch.tensor([], dtype=torch.long)
+        for i, anchor in enumerate(self.anchorList):
+
+            anchorSize = anchor.size(0)
+            headIndices = torch.cat(
+                [headIndices, torch.full((anchorSize,), i)])
+            anchorIndices = torch.cat(
+                [anchorIndices, torch.arange(anchorSize)])
+
+        anchor = torch.cat(
+            [anchor for anchor in self.anchorList]).unsqueeze(0)
+
+        bw, bh = box[..., 0], box[..., 1]
+        aw, ah = anchor[..., 0], anchor[..., 1]
+
+        interArea = torch.min(bw, aw) * torch.min(bh, ah)
+        unionArea = bw * bh + aw * ah - interArea
+
+        return headIndices, anchorIndices, (interArea / (unionArea + 1e-8))
 
 
 class RBox_ToTensor(object):

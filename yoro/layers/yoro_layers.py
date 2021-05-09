@@ -85,11 +85,11 @@ class YOROLayer(Module):
 
         self.degPartSize = deg_part_size
         self.degValueScale = float(deg_part_size) / 2.0
-        self.degAnchor = torch.arange(
-            start=deg_min, end=deg_max + deg_part_size, step=deg_part_size)
+        self.degAnchor: List[torch.Tensor] = [torch.arange(
+            start=deg_min, end=deg_max + deg_part_size, step=deg_part_size)]
 
-        self.degPartDepth = len(self.degAnchor)
-        self.degValueDepth = len(self.degAnchor)
+        self.degPartDepth = self.degAnchor[0].size(0)
+        self.degValueDepth = self.degAnchor[0].size(0)
         self.degDepth = self.degPartDepth + self.degValueDepth
 
         # Feature map specification construction: bbox
@@ -216,7 +216,7 @@ class YOROLayer(Module):
 
             # Cache anchor
             anchor = self.anchorList[i].to(device)
-            degAnchor = self.degAnchor.to(device)
+            degAnchor = self.degAnchor[0].to(device)
 
             # Find grid x, y
             gridY = (torch.arange(fmapHeight, dtype=dtype, device=device)

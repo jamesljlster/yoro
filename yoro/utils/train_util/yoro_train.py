@@ -65,7 +65,7 @@ class YOROTrain(BaseTrain):
                 [tup[0].size()[-3:] for tup in self.suffix(out)],
                 [torch.tensor([w, h])
                     for (w, h) in zip(self.suffix.gridWidth, self.suffix.gridHeight)],
-                self.suffix.degAnchor.clone(),
+                self.suffix.degAnchor[0].clone(),
                 self.suffix.degValueScale)
         ]
 

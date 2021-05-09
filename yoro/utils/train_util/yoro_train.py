@@ -51,7 +51,8 @@ class YOROTrain(BaseTrain):
             'anchor': cfgCons['anchor'],
             'deg_min': cfgCons['deg_min'],
             'deg_max': cfgCons['deg_max'],
-            'deg_part_size': cfgCons['deg_part_size']
+            'deg_part_size': cfgCons['deg_part_size'],
+            'loss_norm': cfgTParam.get('loss_normalizer', {})
         }
 
         self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)

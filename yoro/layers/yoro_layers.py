@@ -32,7 +32,7 @@ class YOROLayer(Module):
                  width: int, height: int, num_classes: int,
                  input_shapes: List[torch.Size], anchor: List[List[list]],
                  deg_min: int = -180, deg_max: int = 180, deg_part_size: int = 10,
-                 conv_params: List[Dict] = [{}]
+                 conv_params: List[Dict] = [{}], loss_norm: Dict = {}
                  ):
 
         super(YOROLayer, self).__init__()
@@ -61,6 +61,14 @@ class YOROLayer(Module):
             (width / size[3]) for size in input_shapes]
         self.gridHeight: List[float] = [
             (height / size[2]) for size in input_shapes]
+
+        # Loss normalizer
+        self.objNorm = loss_norm.get('obj', 1.0)
+        self.nobjNorm = loss_norm.get('no_obj', 1.0)
+        self.clsNorm = loss_norm.get('class', 1.0)
+        self.boxNorm = loss_norm.get('box', 1.0)
+        self.degPartNorm = loss_norm.get('degree_part', 1.0)
+        self.degShiftNorm = loss_norm.get('degree_shift', 1.0)
 
         # Build anchor
         if len(anchor) == 1:
@@ -287,7 +295,7 @@ class YOROLayer(Module):
             if objMask.sum() > 0:
 
                 # Objectness loss
-                objLoss += F.binary_cross_entropy(
+                objLoss += self.objNorm * F.binary_cross_entropy(
                     obj[objMask], objT[objMask].to(device), reduction='sum')
 
                 # Extract targets
@@ -295,7 +303,7 @@ class YOROLayer(Module):
                     targets[1][headIdx]
 
                 # Class loss
-                clsLoss += F.cross_entropy(
+                clsLoss += self.clsNorm * F.cross_entropy(
                     cls[batchT, acrIdxT, yIdxT, xIdxT], clsT.to(device), reduction='sum')
 
                 # Bounding box loss
@@ -308,13 +316,13 @@ class YOROLayer(Module):
                 hLoss = F.mse_loss(
                     h[batchT, acrIdxT, yIdxT, xIdxT], hT.to(device), reduction='sum')
 
-                boxLoss += xLoss + yLoss + wLoss + hLoss
+                boxLoss += self.boxNorm * (xLoss + yLoss + wLoss + hLoss)
 
                 # Degree loss
-                degPartLoss += F.cross_entropy(
+                degPartLoss += self.degPartNorm * F.cross_entropy(
                     degPart[batchT, acrIdxT, yIdxT, xIdxT],
                     degPartT.to(device), reduction='sum')
-                degShiftLoss += F.mse_loss(
+                degShiftLoss += self.degShiftNorm * F.mse_loss(
                     degShift[batchT, acrIdxT, yIdxT, xIdxT, degPartT],
                     degShiftT.to(device), reduction='sum')
 

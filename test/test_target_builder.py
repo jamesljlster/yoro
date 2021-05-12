@@ -14,6 +14,10 @@ width = 416
 height = 416
 num_classes = 2
 
+degree_range = 30
+scale_min = 0.5
+scale_max = 1.5
+
 if __name__ == '__main__':
 
     inputs = [torch.randn(2, 256, 26, 26),
@@ -38,7 +42,7 @@ if __name__ == '__main__':
     transform = Compose([
         RBox_PadToAspect((width / height)),
         RBox_Resize((height, width)),
-        RBox_RandomAffine(30, None, [0.5, 1.5])
+        RBox_RandomAffine(degree_range, None, [scale_min, scale_max])
     ])
 
     data = RBoxSample('~/dataset/coating/valid',

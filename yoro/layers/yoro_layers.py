@@ -173,10 +173,11 @@ class YOROLayer(Module):
 
             # Get outputs: bounding box
             base += self.classDepth
-            x = torch.sigmoid(head[..., base + 0])
-            y = torch.sigmoid(head[..., base + 1])
-            w = head[..., base + 2]
-            h = head[..., base + 3]
+            boxes = torch.sigmoid(head[..., base:base+self.bboxDepth])
+            x = boxes[..., 0]
+            y = boxes[..., 1]
+            w = boxes[..., 2]
+            h = boxes[..., 3]
 
             # Get outputs: degree partition
             base += self.bboxDepth
@@ -240,10 +241,12 @@ class YOROLayer(Module):
 
             boxes = torch.zeros(
                 batch, anchorSize, fmapHeight, fmapWidth, 4, device=device)
-            boxes[..., 0] = (x + gridX) * self.gridWidth[i]
-            boxes[..., 1] = (y + gridY) * self.gridHeight[i]
-            boxes[..., 2] = torch.exp(w) * anchor[:, 0].view(1, -1, 1, 1)
-            boxes[..., 3] = torch.exp(h) * anchor[:, 1].view(1, -1, 1, 1)
+            boxes[..., 0] = ((x * 2 - 0.5) + gridX) * self.gridWidth[i]
+            boxes[..., 1] = ((y * 2 - 0.5) + gridY) * self.gridHeight[i]
+            boxes[..., 2] = \
+                torch.pow(w * 2, 2) * anchor[:, 0].view(1, -1, 1, 1)
+            boxes[..., 3] = \
+                torch.pow(h * 2, 2) * anchor[:, 1].view(1, -1, 1, 1)
 
             idx = torch.argmax(degPart, dim=4)
             degree = (degAnchor[idx] +

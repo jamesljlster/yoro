@@ -300,11 +300,11 @@ class TargetBuilder(object):
                     yIdxT[headIdx].append(yIdx)
                     clsT[headIdx].append(labels[rowInd])
 
-                    xT[headIdx].append(normCoord[0] - xIdx)
-                    yT[headIdx].append(normCoord[1] - yIdx)
+                    xT[headIdx].append((normCoord[0] - xIdx + 0.5) / 2.0)
+                    yT[headIdx].append((normCoord[1] - yIdx + 0.5) / 2.0)
 
-                    normSize = torch.log(
-                        boxesSize[rowInd] / self.anchorList[headIdx][acrIdx])
+                    normSize = torch.sqrt(
+                        boxesSize[rowInd] / self.anchorList[headIdx][acrIdx]) / 2.0
                     wT[headIdx].append(normSize[0])
                     hT[headIdx].append(normSize[1])
 

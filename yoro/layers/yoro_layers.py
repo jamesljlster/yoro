@@ -203,9 +203,9 @@ class YOROLayer(Module):
     @torch.jit.export
     def decode(self, inputs: List[Tuple[
         Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]]) \
-            -> List[Tuple[Tensor, Tensor, Tensor, Tensor]]:
+            -> List[Tuple[Tensor, Tensor, Tensor]]:
 
-        outputs: List[Tuple[Tensor, Tensor, Tensor, Tensor]] = []
+        outputs: List[Tuple[Tensor, Tensor, Tensor]] = []
         for i, (obj, cls, x, y, w, h, degPart, degShift) in enumerate(inputs):
 
             # Detach tensors
@@ -239,25 +239,27 @@ class YOROLayer(Module):
                 4, label.unsqueeze(-1))
             conf = obj * labelConf.squeeze(-1)
 
-            boxes = torch.zeros(
-                batch, anchorSize, fmapHeight, fmapWidth, 4, device=device)
-            boxes[..., 0] = ((x * 2 - 0.5) + gridX) * self.gridWidth[i]
-            boxes[..., 1] = ((y * 2 - 0.5) + gridY) * self.gridHeight[i]
-            boxes[..., 2] = \
+            idx = torch.argmax(degPart, dim=4)
+            degree = torch.unsqueeze(
+                degAnchor[idx] +
+                torch.gather(degShift, 4, idx.unsqueeze(-1)).squeeze(-1) *
+                self.degValueScale, 0)
+
+            rboxes = torch.zeros(
+                batch, anchorSize, fmapHeight, fmapWidth, 5, device=device)
+            rboxes[..., 0] = degree
+            rboxes[..., 1] = ((x * 2 - 0.5) + gridX) * self.gridWidth[i]
+            rboxes[..., 2] = ((y * 2 - 0.5) + gridY) * self.gridHeight[i]
+            rboxes[..., 3] = \
                 torch.pow(w * 2, 2) * anchor[:, 0].view(1, -1, 1, 1)
-            boxes[..., 3] = \
+            rboxes[..., 4] = \
                 torch.pow(h * 2, 2) * anchor[:, 1].view(1, -1, 1, 1)
 
-            idx = torch.argmax(degPart, dim=4)
-            degree = (degAnchor[idx] +
-                      torch.gather(degShift, 4, idx.unsqueeze(-1)).squeeze(-1) *
-                      self.degValueScale)
-
-            outputs.append((conf, label, boxes, degree))
+            outputs.append((conf, label, rboxes))
 
         return outputs
 
-    def forward(self, inputs: List[Tensor]) -> List[Tuple[Tensor, Tensor, Tensor, Tensor]]:
+    def forward(self, inputs: List[Tensor]) -> List[Tuple[Tensor, Tensor, Tensor]]:
 
         x = self.predict(inputs)
         x = self.decode(x)

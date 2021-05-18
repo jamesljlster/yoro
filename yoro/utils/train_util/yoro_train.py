@@ -5,7 +5,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
-from ... import api
+from ... import ops
 from ...datasets import RBoxSample, load_class_names
 from ...transforms import \
     RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToAspect, RBox_ToTensor
@@ -119,9 +119,12 @@ class YOROTrain(BaseTrain):
 
             # Collate image and annotations
             images = []
-            annos = []
+            rawAnnos = []
             for batchIdx, (image, anno) in enumerate(samples):
+
                 images.append(image)
+                rawAnnos.append(anno[2])
+
                 for headIdx, obj in enumerate(anno[0]):
                     objs[headIdx].append(obj)
 
@@ -177,7 +180,7 @@ class YOROTrain(BaseTrain):
                     degShiftT[headIdx])
                 )
 
-            return images, (objs, targets)
+            return images, (objs, targets, rawAnnos)
 
         # Configure data loader
         self.traLoader = DataLoader(
@@ -199,13 +202,11 @@ class YOROTrain(BaseTrain):
             **cfgOptim['args'])
 
         # Configure evaluator and KPI
-        """
         self.evaluator = YOROEvaluator(
             num_classes=trainSet.numClasses,
             **cfgTParam['evaluator'])
 
         self.modelKpi = ['mAP']
-        """
 
 
 class YOROEvaluator(BaseEvaluator):
@@ -217,101 +218,65 @@ class YOROEvaluator(BaseEvaluator):
         self.simTh = sim_threshold
 
     def post_process(self, preds):
-        return api.non_maximum_suppression(preds, self.confTh, self.nmsTh)
+        preds = ops.flatten_prediction(preds)
+        return ops.non_maximum_suppression(preds, self.confTh, self.nmsTh)
 
     def evaluate(self, dts_gts):
 
-        # Record all detection truth and ground truth
-        def _build_truth_storage():
-            return (
-                {idx: {} for idx in range(self.numClasses)},
-                [list() for _ in range(len(dts_gts))]
-            )
-
-        dts, dtidPerImg = _build_truth_storage()
-        gts, gtidPerImg = _build_truth_storage()
-        gtidPerClass = [list() for _ in range(self.numClasses)]
-
+        gtCountPerClass = [0] * self.numClasses
         apTable = [list() for _ in range(self.numClasses)]
 
         gtCounter = 0
         dtCounter = 0
-        for imgInd, (pred, gt) in enumerate(dts_gts):
+        for predGroup, gtGroup in dts_gts:
+            for dts, gts in zip(predGroup, gtGroup[2]):
 
-            # Convert ground truth
-            for inst in gt:
+                dtIds = torch.arange(len(dts))
+                gtIds = torch.arange(len(dts))
+                dtsPaired = []
 
-                gtId = gtCounter
-                gtCounter += 1
+                # Record ground truth count
+                for inst in gts:
+                    gtCountPerClass[inst['label']] += 1
 
-                gt = api.RBox()
-                gt.conf = 1.0
-                gt.label = inst['label']
-                gt.degree = inst['degree']
-                gt.x = inst['x']
-                gt.y = inst['y']
-                gt.w = inst['w']
-                gt.h = inst['h']
+                # Detection result pairing
+                if len(dts) > 0 and len(gts) > 0:
 
-                gts[gtId] = gt
-                gtidPerImg[imgInd].append(gtId)
-                gtidPerClass[gt.label].append(gtId)
+                    scores = rbox_similarity(dts, gts)
 
-            # Record detection truth
-            for dt in pred:
+                    while True:
 
-                dtId = dtCounter
-                dtCounter += 1
+                        # Get the highest score for current iteration
+                        score = torch.max(scores)
+                        if score < self.simTh:
+                            break
 
-                dts[dtId] = dt
-                dtidPerImg[imgInd].append(dtId)
+                        maxPos = torch.where(scores == score)
+                        dtId = maxPos[0][0]
+                        gtId = maxPos[1][0]
 
-            # Detection result pairing
-            dtsPaired = []
+                        if dts[dtId]['label'] == gts[gtId]['label']:
 
-            dtIds = dtidPerImg[imgInd]
-            gtIds = gtidPerImg[imgInd]
+                            # Record this pair as true positive
+                            dtsPaired.append(dtId)
+                            apTable[dts[dtId]['label']].append(
+                                (dts[dtId]['conf'], True)
+                            )
 
-            if len(gtIds) > 0 and len(dtIds) > 0:
-                scores = torch.stack([
-                    rbox_similarity(dts[dtId], [gts[gtId] for gtId in gtIds])
-                    for dtId in dtIds
-                ])
+                            # Clear matched dt and gt
+                            scores[dtId, :] = -1
+                            scores[:, gtId] = -1
 
-                while torch.max(scores) > self.simTh:
+                        else:
 
-                    # Get the highest score for current iteration
-                    score = torch.max(scores)
-                    maxPos = torch.where(scores == score)
-                    rowInd = maxPos[0][0]
-                    colInd = maxPos[1][0]
+                            # Clear this score due to label mismatch
+                            scores[dtId, gtId] = -1
 
-                    if dts[dtIds[rowInd]].label == gts[gtIds[colInd]].label:
-
-                        # Record this pair as true positive
-                        dtId = dtIds[rowInd]
-                        gtId = gtIds[colInd]
-
-                        dtsPaired.append(dtId)
-                        apTable[dts[dtIds[rowInd]].label].append(
-                            (dts[dtId].conf, True)
-                        )
-
-                        # Clear matched dt and gt
-                        scores[rowInd, :] = -1
-                        scores[:, colInd] = -1
-
-                    else:
-
-                        # Clear this score due to label mismatch
-                        scores[rowInd, colInd] = -1
-
-            # Record for false positive
-            for dtId in dtIds:
-                if dtId not in dtsPaired:
-                    apTable[dts[dtId].label].append(
-                        (dts[dtId].conf, False)
-                    )
+                # Record false positive
+                for dtId in dtIds:
+                    if dtId not in dtsPaired:
+                        apTable[dts[dtId]['label']].append(
+                            (dts[dtId]['conf'], False))
 
         # Sort by confidence
         for cId in range(self.numClasses):
@@ -339,11 +304,14 @@ class YOROEvaluator(BaseEvaluator):
                     else:
                         fpCount += 1
 
-                    precision = float(tpCount) / (tpCount + fpCount)
-                    recall = (
-                        float(tpCount) / (tpCount + len(gtidPerClass[cId]) - recallCount))
-                    tmpAP += (recall - recallHold) * precision
+                    def safe_division(n, d):
+                        return n / d if d else 0.0
 
+                    precision = safe_division(tpCount, tpCount + fpCount)
+                    recall = safe_division(
+                        tpCount, tpCount + gtCountPerClass[cId] - recallCount)
+
+                    tmpAP += (recall - recallHold) * precision
                     recallHold = recall
 
                 classAP[cId] = tmpAP
@@ -351,23 +319,24 @@ class YOROEvaluator(BaseEvaluator):
             else:
                 hasInst[cId] = 0
 
-        mAP = (torch.sum(torch.tensor(classAP)) /
-               torch.sum(torch.tensor(hasInst)))
+        mAP = torch.tensor(0)
+        if torch.sum(torch.tensor(hasInst)) > 0:
+            mAP = (torch.sum(torch.tensor(classAP)) /
+                   torch.sum(torch.tensor(hasInst)))
 
         return {'mAP': mAP.item()}
 
 
 def get_rbox_tensor(rbox):
-    return [rbox.degree, rbox.x, rbox.y, rbox.w, rbox.h]
+    return [rbox['degree'], rbox['x'], rbox['y'], rbox['w'], rbox['h']]
 
 
 def rbox_similarity(pred1, pred2):
-    if len(pred2) == 0:
+    if (len(pred2) == 0) or (len(pred1) == 0):
         return None
     else:
-        return api.rbox_similarity(
-            torch.tensor([get_rbox_tensor(pred1)], dtype=torch.float32),
+        return ops.rbox_similarity(
             torch.tensor(
-                [get_rbox_tensor(rbox) for rbox in pred2],
-                dtype=torch.float32)
-        ).squeeze(0)
+                [get_rbox_tensor(rbox) for rbox in pred1], dtype=torch.float32),
+            torch.tensor(
+                [get_rbox_tensor(rbox) for rbox in pred2], dtype=torch.float32))

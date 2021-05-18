@@ -85,6 +85,9 @@ def non_maximum_suppression(
         rbox = predRBox[n, mask]
         sim = rbox_similarity(rbox, rbox)
 
+        if conf.size(-1) == 0:
+            continue
+
         while True:
 
             # Start with the maximum confident instance

@@ -324,7 +324,7 @@ class TargetBuilder(object):
                            xT, yT, wT, hT,
                            degPartT, degShiftT)]
 
-        return objs, targets
+        return objs, targets, anno_list
 
     def anchor_score(self, box):
 

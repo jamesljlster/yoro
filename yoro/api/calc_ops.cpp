@@ -27,28 +27,27 @@ Tensor bbox_to_corners(const Tensor& bbox)
 }
 
 // rbox: deg, x, y, w, h
-Tensor rbox_similarity(const Tensor& rbox1, const Tensor& rbox2)
+Tensor rbox_similarity(const Tensor& rbox1, const Tensor& rbox2, float eps)
 {
     // BBox to corners
     Tensor corners1 = bbox_to_corners(rbox1.index({Ellipsis, Slice(1, 5)}));
     Tensor corners2 = bbox_to_corners(rbox2.index({Ellipsis, Slice(1, 5)}));
 
     // Find IoU scores
-    Tensor interX1 =
-        max(corners1.index({Ellipsis, 0}), corners2.index({Ellipsis, 0}));
-    Tensor interY1 =
-        max(corners1.index({Ellipsis, 1}), corners2.index({Ellipsis, 1}));
-    Tensor interX2 =
-        min(corners1.index({Ellipsis, 2}), corners2.index({Ellipsis, 2}));
-    Tensor interY2 =
-        min(corners1.index({Ellipsis, 3}), corners2.index({Ellipsis, 3}));
+    Tensor lt =
+        max(corners1.index({Ellipsis, None, Slice(None, 2)}),
+            corners2.index({Ellipsis, Slice(None, 2)}));
+    Tensor rb =
+        min(corners1.index({Ellipsis, None, Slice(2, None)}),
+            corners2.index({Ellipsis, Slice(2, None)}));
+    Tensor wh = clamp(rb - lt, 0);
 
-    Tensor interArea =
-        clamp(interX2 - interX1, 0) * clamp(interY2 - interY1, 0);
-    Tensor unionArea = rbox1.index({Ellipsis, 3}) * rbox1.index({Ellipsis, 4}) +
+    Tensor interArea = wh.index({Ellipsis, 0}) * wh.index({Ellipsis, 1});
+    Tensor unionArea = (rbox1.index({Ellipsis, 3}) * rbox1.index({Ellipsis, 4}))
+                           .index({Ellipsis, None}) +
                        rbox2.index({Ellipsis, 3}) * rbox2.index({Ellipsis, 4}) -
                        interArea;
-    Tensor ious = interArea / (unionArea + 1e-4);
+    Tensor ious = interArea / (unionArea + eps);
 
     // Find degree similarity
     Tensor rad1 = deg2rad(rbox1.index({Ellipsis, 0}));
@@ -60,112 +59,93 @@ Tensor rbox_similarity(const Tensor& rbox1, const Tensor& rbox2)
     return ious * angSim;
 }
 
-// pred: conf, label, deg, x, y, w, h
-vector<vector<RBox>> non_maximum_suppression(
-    const Tensor& predIn, float confTh, float nmsTh)
+tuple<Tensor, Tensor, Tensor> flatten_prediction(
+    const vector<tuple<Tensor, Tensor, Tensor>>& predList)
 {
-    int batch = predIn.size(0);
+    vector<Tensor> totalConf, totalLabel, totalRBox;
+    for (tuple<Tensor, Tensor, Tensor> inst : predList)
+    {
+        Tensor conf = std::get<0>(inst);
+        Tensor label = std::get<1>(inst);
+        Tensor rbox = std::get<2>(inst);
+
+        auto batch = conf.size(0);
+        totalConf.push_back(conf.view({batch, -1}));
+        totalLabel.push_back(label.view({batch, -1}));
+        totalRBox.push_back(rbox.view({batch, -1, 5}));
+    }
+
+    return {cat(totalConf, 1), cat(totalLabel, 1), cat(totalRBox, 1)};
+}
+
+vector<vector<RBox>> non_maximum_suppression(
+    const tuple<Tensor, Tensor, Tensor>& pred, float confTh, float nmsTh)
+{
+    Tensor predConf = std::get<0>(pred).to(torch::kCPU);
+    Tensor predClass = std::get<1>(pred).to(torch::kCPU);
+    Tensor predRBox = std::get<2>(pred).to(torch::kCPU);
+
+    auto batch = predConf.size(0);
     vector<vector<RBox>> nmsOut(batch, vector<RBox>());
 
-    // Detach tensor
-    predIn.detach_();
-
     // Processing NMS on mini-batch
-    for (int n = 0; n < batch; n++)
+    for (auto n = 0; n < batch; n++)
     {
-        Tensor pred = predIn.index({n, "..."});
-
         // Confidence filtering
-        pred = pred.index({pred.index({Ellipsis, 0}) >= confTh});
+        Tensor mask = (predConf.index({n}) >= confTh);
+        Tensor conf = predConf.index({n, mask});
+        Tensor cls = predClass.index({n, mask});
+        Tensor rbox = predRBox.index({n, mask});
+        Tensor sim = rbox_similarity(rbox, rbox);
 
-        // RBox similarity filtering
-        vector<RBox> boxes;
-        while (pred.size(0))
+        if (conf.size(-1) == 0)
         {
-            // Sort rbox with confidence
-            Tensor confScore = pred.index({Ellipsis, 0});
-            pred = pred.index({confScore.argsort(0, true)});
-
-            // Get indices of rbox with same label
-            Tensor labelMatch =
-                (pred.index({0, 1}) == pred.index({Ellipsis, 1}));
-
-            // Get indices of rbox with high similarity
-            Tensor highSim =
-                (rbox_similarity(
-                     pred.index({0, Slice(2, 7)}).unsqueeze(0),
-                     pred.index({Ellipsis, Slice(2, 7)})) >= nmsTh);
-
-            // Find indices and weights of rbox that ready to be merged.
-            Tensor rmIdx = logical_and(labelMatch, highSim).squeeze(0);
-            if (!rmIdx.sum().item<bool>())
-            {
-                rmIdx.accessor<bool, 1>()[0] = true;
-            }
-
-            Tensor weight = confScore.index({rmIdx}).unsqueeze(0);
-
-            // Find merged rbox
-            Tensor rbox =
-                (matmul(weight, pred.index({rmIdx, Ellipsis})) / weight.sum())
-                    .squeeze(0);
-
-            auto data = rbox.accessor<float, 1>();
-            boxes.push_back(RBox(
-                data[0],       // Confidence
-                (int)data[1],  // Label
-                data[2],       // Degree
-                data[3],       // Center x
-                data[4],       // Center y
-                data[5],       // Width
-                data[6]        // Height
-                ));
-
-            // Remove processed rbox
-            pred = pred.index({logical_not(rmIdx)});
+            continue;
         }
 
-        nmsOut[n] = boxes;
+        while (true)
+        {
+            // Start with the maximum confident instance
+            tuple<Tensor, Tensor> ret = max(conf, -1);
+            float maxConf = std::get<0>(ret).item<float>();
+            long ind = std::get<1>(ret).item<long>();
+            if (maxConf < confTh)
+            {
+                break;
+            }
+
+            // Merge instances with high similarity
+            long curClass = cls.accessor<long, 1>()[ind];
+            Tensor candMask = (conf >= confTh) & (cls == curClass) &
+                              (sim.index({ind}) >= nmsTh);
+            if (!candMask.sum().item<long>())
+            {
+                candMask.accessor<bool, 1>()[ind] = true;
+            }
+
+            Tensor weight = conf.index({candMask});
+            Tensor resultRBox =
+                matmul(weight, rbox.index({candMask})) / weight.sum();
+            Tensor resultConf = matmul(weight, weight);
+
+            // Clear merged RBox
+            conf.index_put_({candMask}, -1.0);
+
+            // Append result
+            auto data = resultRBox.accessor<float, 1>();
+            nmsOut[n].push_back(RBox(
+                resultConf.item<float>(),  // Confidence
+                curClass,                  // Label
+                data[0],                   // Degree
+                data[1],                   // Center x
+                data[2],                   // Center y
+                data[3],                   // Width
+                data[4]                    // Height
+                ));
+        }
     }
 
     return nmsOut;
-}
-
-vector<vector<RBox>> non_maximum_suppression(
-    const Tensor& predConf,
-    const Tensor& predClass,
-    const Tensor& predBox,
-    const Tensor& predDeg,
-    float confTh,
-    float nmsTh)
-{
-    // Concatenate tensor
-    Tensor pred = torch::cat(
-                      {predConf.unsqueeze(-1).to(PROC_DTYPE),
-                       predClass.unsqueeze(-1).to(PROC_DTYPE),
-                       predDeg.unsqueeze(-1).to(PROC_DTYPE),
-                       predBox.to(PROC_DTYPE)},
-                      2)
-                      .to(torch::kCPU);
-
-    // Processing non-maximum suppression
-    return non_maximum_suppression(pred, confTh, nmsTh);
-}
-
-vector<vector<RBox>> non_maximum_suppression(
-    const tuple<Tensor, Tensor, Tensor, Tensor>& outputs,
-    float confTh,
-    float nmsTh)
-{
-    // Unpack tuple
-    Tensor predConf = std::get<0>(outputs);
-    Tensor predClass = std::get<1>(outputs);
-    Tensor predBox = std::get<2>(outputs);
-    Tensor predDeg = std::get<3>(outputs);
-
-    // Processing non-maximum suppression
-    return non_maximum_suppression(
-        predConf, predClass, predBox, predDeg, confTh, nmsTh);
 }
 
 }  // namespace yoro_api

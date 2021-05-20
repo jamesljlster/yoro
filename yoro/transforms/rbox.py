@@ -6,6 +6,8 @@ import numpy as np
 import torch
 import math
 
+from typing import List, Dict, Tuple
+
 
 def rbox_affine(sample, degree, translate, scale,
                 interpolation=F.InterpolationMode.NEAREST, fill=0):
@@ -220,18 +222,156 @@ class RBox_PadToSquare(object):
         return (image, newAnno)
 
 
+class TargetBuilder(object):
+
+    def __init__(self, anchor_list, obj_dims, grid_size, deg_anchor, deg_scale):
+
+        self.anchorList = anchor_list
+        self.objDims = obj_dims
+        self.gridSize = grid_size
+        self.degAnchor = deg_anchor
+        self.degScale = deg_scale
+
+    def __call__(self, anno_list):
+
+        # Build objectness mask
+        objs = [torch.zeros(size, dtype=torch.bool) for size in self.objDims]
+
+        # Target storage
+        def _build_target_storage():
+            return [[] for _ in range(len(self.objDims))]
+
+        acrIdxT = _build_target_storage()
+        xIdxT = _build_target_storage()
+        yIdxT = _build_target_storage()
+        clsT = _build_target_storage()
+
+        xT = _build_target_storage()
+        yT = _build_target_storage()
+        wT = _build_target_storage()
+        hT = _build_target_storage()
+
+        degPartT = _build_target_storage()
+        degShiftT = _build_target_storage()
+
+        # Tensorlize
+        boxesSize = torch.tensor(
+            [[anno['w'], anno['h']] for anno in anno_list],
+            dtype=torch.float)
+
+        boxesCoord = torch.tensor(
+            [[anno['x'], anno['y']] for anno in anno_list],
+            dtype=torch.float)
+
+        labels = torch.tensor([anno['label'] for anno in anno_list])
+        degrees = torch.tensor([anno['degree'] for anno in anno_list])
+
+        # Find anchor score for boxes
+        ret = self.anchor_score(boxesSize)
+        if ret is not None:
+            headInd, acrInd, acrScores = ret
+
+            # Anchor matching
+            while True:
+
+                maxScore = torch.max(acrScores)
+                if maxScore < 0:
+                    break
+
+                maxInd = torch.where(acrScores == maxScore)
+                rowInd = maxInd[0][0]
+                colInd = maxInd[1][0]
+
+                headIdx = headInd[colInd]
+                acrIdx = acrInd[colInd]
+
+                normCoord = boxesCoord[rowInd] / self.gridSize[headIdx]
+                xIdx, yIdx = torch.floor(normCoord).to(torch.long)
+
+                if objs[headIdx][acrIdx, yIdx, xIdx]:
+                    acrScores[rowInd, colInd] = -1
+                else:
+                    objs[headIdx][acrIdx, yIdx, xIdx] = True
+                    acrScores[rowInd, :] = -1
+
+                    # Target encoding
+                    acrIdxT[headIdx].append(acrIdx)
+                    xIdxT[headIdx].append(xIdx)
+                    yIdxT[headIdx].append(yIdx)
+                    clsT[headIdx].append(labels[rowInd])
+
+                    xT[headIdx].append((normCoord[0] - xIdx + 0.5) / 2.0)
+                    yT[headIdx].append((normCoord[1] - yIdx + 0.5) / 2.0)
+
+                    normSize = torch.sqrt(
+                        boxesSize[rowInd] / self.anchorList[headIdx][acrIdx]) / 2.0
+                    wT[headIdx].append(normSize[0])
+                    hT[headIdx].append(normSize[1])
+
+                    degDiff = degrees[rowInd] - self.degAnchor
+                    degPartIdx = torch.argmin(torch.abs(degDiff))
+                    degPartT[headIdx].append(degPartIdx)
+                    degShiftT[headIdx].append(
+                        degDiff[degPartIdx] / self.degScale)
+
+        targets = [
+            [torch.tensor(elem, dtype=dtype) for (elem, dtype) in
+                zip(tup, [torch.long, torch.long, torch.long, torch.long,
+                          torch.float, torch.float, torch.float, torch.float,
+                          torch.long, torch.float
+                          ])]
+            for tup in zip(acrIdxT, xIdxT, yIdxT, clsT,
+                           xT, yT, wT, hT,
+                           degPartT, degShiftT)]
+
+        return objs, targets, anno_list
+
+    def anchor_score(self, box):
+
+        if box.size(0) == 0:
+            return None
+
+        box = box.view(box.size(0), -1, 2)
+
+        headIndices = torch.tensor([], dtype=torch.long)
+        anchorIndices = torch.tensor([], dtype=torch.long)
+        for i, anchor in enumerate(self.anchorList):
+
+            anchorSize = anchor.size(0)
+            headIndices = torch.cat(
+                [headIndices, torch.full((anchorSize,), i)])
+            anchorIndices = torch.cat(
+                [anchorIndices, torch.arange(anchorSize)])
+
+        anchor = torch.cat(
+            [anchor for anchor in self.anchorList]).unsqueeze(0)
+
+        bw, bh = box[..., 0], box[..., 1]
+        aw, ah = anchor[..., 0], anchor[..., 1]
+
+        interArea = torch.min(bw, aw) * torch.min(bh, ah)
+        unionArea = bw * bh + aw * ah - interArea
+
+        return headIndices, anchorIndices, (interArea / (unionArea + 1e-8))
+
+
 class RBox_ToTensor(object):
 
-    def __init__(self):
+    def __init__(self, anchor_list, obj_dims, grid_size, deg_anchor, deg_scale):
 
         # Image transform
         self.toTensor = ToTensor()
+
+        # Annotation transform
+        self.tgtBuilder = TargetBuilder(
+            anchor_list, obj_dims, grid_size, deg_anchor, deg_scale)
 
     def __call__(self, sample):
 
         image, anno = sample
 
-        # Apply image transform
+        # Apply transformation
         image = self.toTensor(image)
+        anno = self.tgtBuilder(anno)
 
         return (image, anno)

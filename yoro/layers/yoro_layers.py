@@ -1,46 +1,74 @@
+import math
+
 import torch
-from torch.nn import Module, Parameter, Conv2d
+from torch import Tensor
+from torch.nn import Module, ModuleList, ParameterList, Parameter, Conv2d
 from torch.nn import functional as F
+
+from typing import List, Dict, Tuple
 
 from .functional import correlation_coefficient
 
 
 class YOROLayer(Module):
 
-    __constants__ = [
-        'numClasses', 'width', 'height', 'gridWidth', 'gridHeight',
-        'anchorSize',
-        'degMin', 'degMax', 'degRange',
-        'degPartSize', 'degValueScale',
-        'degPartDepth', 'degValueDepth',
-        'bboxDepth', 'classDepth', 'objDepth',
-        'groupDepth', 'fmapDepth'
-    ]
-
-    def __init__(self, in_channels, num_classes,
-                 width: int, height: int, fmap_width, fmap_height, anchor,
-                 deg_min=-180, deg_max=180, deg_part_size=10, conv_params={}):
+    def __init__(self,
+                 width: int, height: int, num_classes: int,
+                 input_shapes: List[torch.Size], anchor: List[List[list]],
+                 deg_min: int = -180, deg_max: int = 180, deg_part_size: int = 10,
+                 conv_params: List[Dict] = [{}], loss_norm: Dict = {}
+                 ):
 
         super(YOROLayer, self).__init__()
+
+        # Find head size
+        if isinstance(input_shapes, torch.Size):
+            input_shapes = [input_shapes]
+
+        headSize = len(input_shapes)
+
+        # Check convolution parameters
+        if isinstance(conv_params, dict):
+            conv_params = [conv_params] * headSize
+
+        assert len(conv_params) != headSize, \
+            'Numbers of \"conv_params\" does not match with desire head size.'
 
         # Save parameters
         self.numClasses = num_classes
         self.width = width
         self.height = height
-        self.gridWidth = width / fmap_width
-        self.gridHeight = height / fmap_height
+
+        self.headSize = headSize
+
+        self.gridWidth: List[float] = [
+            (width / size[3]) for size in input_shapes]
+        self.gridHeight: List[float] = [
+            (height / size[2]) for size in input_shapes]
+
+        # Loss normalizer
+        self.objNorm = loss_norm.get('obj', 1.0)
+        self.nobjNorm = loss_norm.get('no_obj', 1.0)
+        self.clsNorm = loss_norm.get('class', 1.0)
+        self.boxNorm = loss_norm.get('box', 1.0)
+        self.degPartNorm = loss_norm.get('degree_part', 1.0)
+        self.degShiftNorm = loss_norm.get('degree_shift', 1.0)
 
         # Build anchor
-        self.anchor = Parameter(torch.FloatTensor(anchor), requires_grad=False)
-        self.anchorSize = self.anchor.size()[0]
+        if len(anchor) == 1:
+            anchor = [anchor] * headSize
 
-        self.anchor[:, 0] /= self.gridWidth
-        self.anchor[:, 1] /= self.gridHeight
+        self.anchorList: List[torch.Tensor] = [
+            torch.tensor(anc) for anc in anchor]
+        self.anchorSizeList: List[int] = []
 
-        self.anchorW = Parameter(
-            self.anchor[:, 0].view(1, -1, 1, 1).clone(), requires_grad=False)
-        self.anchorH = Parameter(
-            self.anchor[:, 1].view(1, -1, 1, 1).clone(), requires_grad=False)
+        for i, anc in enumerate(self.anchorList):
+            size, dim = anc.size()
+
+            # Check anchor format
+            assert dim == 2, \
+                'Anchor last dimension size is not 2 (width, height)'
+            self.anchorSizeList.append(size)
 
         # Feature map specification construction: degree
         self.degMin = deg_min
@@ -49,12 +77,11 @@ class YOROLayer(Module):
 
         self.degPartSize = deg_part_size
         self.degValueScale = float(deg_part_size) / 2.0
-        self.degAnchor = Parameter(torch.arange(
-            start=deg_min, end=deg_max + deg_part_size, step=deg_part_size),
-            requires_grad=False)
+        self.degAnchor: List[torch.Tensor] = [torch.arange(
+            start=deg_min, end=deg_max + deg_part_size, step=deg_part_size)]
 
-        self.degPartDepth = len(self.degAnchor)
-        self.degValueDepth = len(self.degAnchor)
+        self.degPartDepth = self.degAnchor[0].size(0)
+        self.degValueDepth = self.degAnchor[0].size(0)
         self.degDepth = self.degPartDepth + self.degValueDepth
 
         # Feature map specification construction: bbox
@@ -67,259 +94,234 @@ class YOROLayer(Module):
         self.objDepth = 1
 
         # Feature map specification construction: final
-        self.groupDepth = self.objDepth + self.classDepth + self.bboxDepth + self.degDepth
-        self.fmapDepth = self.groupDepth * self.anchorSize
+        self.groupDepth = (
+            self.objDepth + self.classDepth + self.bboxDepth + self.degDepth)
+        self.fmapDepthList: List[int] = [
+            self.groupDepth * ancSize for ancSize in self.anchorSizeList]
 
         # Build regressor
-        conv_params.pop('in_channels', None)
-        conv_params.pop('out_channels', None)
-        conv_params = {
-            'in_channels': in_channels,
-            'out_channels': self.fmapDepth,
-            'kernel_size': 1,
-            'padding': 0,
-            **conv_params
-        }
+        if len(conv_params) == 1:
+            conv_params = conv_params * headSize
 
-        self.regressor = Conv2d(**conv_params)
+        regressor = []
+        for i, conv_param in enumerate(conv_params):
+
+            conv_param.pop('in_channels', None)
+            conv_param.pop('out_channels', None)
+            conv_param = {
+                'in_channels': input_shapes[i][1],
+                'out_channels': self.fmapDepthList[i],
+                'kernel_size': 1,
+                'padding': 0,
+                **conv_param
+            }
+
+            regressor.append(Conv2d(**conv_param))
+
+        self.regressor = ModuleList(regressor)
 
     @torch.jit.export
-    def predict(self, inputs):
+    def head_regression(self, inputs: List[Tensor]) -> List[Tensor]:
 
-        # Get convolution outputs
-        inputs = self.regressor(inputs)
+        outputs: List[Tensor] = []
+        for i, module in enumerate(self.regressor):
+            outputs.append(module(inputs[i]))
 
-        # Get tensor dimensions
-        batch = inputs.size()[0]
-        fmapHeight = inputs.size()[2]
-        fmapWidth = inputs.size()[3]
+        return outputs
 
-        # Rearange predict tensor
-        pred = inputs.view(batch, self.anchorSize, self.groupDepth,
-                           fmapHeight, fmapWidth).permute(0, 1, 3, 4, 2).contiguous()
+    @torch.jit.export
+    def head_slicing(self, inputs: List[Tensor]) -> List[Tuple[
+            Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]]:
 
-        # Get outputs: objectness
-        base = 0
-        conf = torch.sigmoid(pred[..., base])
+        outputs: List[Tuple[
+            Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]] = []
+        for i, head in enumerate(inputs):
 
-        # Get outputs: class
-        base += self.objDepth
-        cls = pred[..., base:base + self.classDepth]
+            # Get tensor dimensions
+            batch = head.size(0)
+            fmapHeight = head.size(2)
+            fmapWidth = head.size(3)
 
-        # Get outputs: bounding box
-        base += self.classDepth
-        x = torch.sigmoid(pred[..., base + 0])
-        y = torch.sigmoid(pred[..., base + 1])
-        w = pred[..., base + 2]
-        h = pred[..., base + 3]
+            # Rearange predict tensor
+            head = head.view(
+                batch, self.anchorSizeList[i], self.groupDepth, fmapHeight, fmapWidth)
+            head = head.permute(0, 1, 3, 4, 2).contiguous()
 
-        # Get outputs: degree partition
-        base += self.bboxDepth
-        degPart = pred[..., base:base + self.degPartDepth]
+            # Get outputs: objectness
+            base = 0
+            obj = torch.sigmoid(head[..., base])
 
-        # Get outputs: degree value shift
-        base += self.degPartDepth
-        degShift = pred[..., base:base + self.degValueDepth]
+            # Get outputs: class
+            base += self.objDepth
+            cls = head[..., base:base + self.classDepth]
 
-        return (conf, cls, x, y, w, h, degPart, degShift)
+            # Get outputs: bounding box
+            base += self.classDepth
+            boxes = torch.sigmoid(head[..., base:base+self.bboxDepth])
+            x = boxes[..., 0]
+            y = boxes[..., 1]
+            w = boxes[..., 2]
+            h = boxes[..., 3]
 
-    def forward(self, inputs):
+            # Get outputs: degree partition
+            base += self.bboxDepth
+            degPart = head[..., base:base + self.degPartDepth]
 
-        (conf, cls, x, y, w, h, degPart, degShift) = self.predict(inputs)
+            # Get outputs: degree value shift
+            base += self.degPartDepth
+            degShift = head[..., base:base + self.degValueDepth]
 
-        # Get tensor dimensions
-        batch = inputs.size()[0]
-        fmapHeight = inputs.size()[2]
-        fmapWidth = inputs.size()[3]
+            outputs.append((obj, cls, x, y, w, h, degPart, degShift))
 
-        # Find grid x, y
-        gridY = (torch.arange(fmapHeight, dtype=inputs.dtype, device=inputs.device)
-                 .view(1, 1, fmapHeight, 1))
-        gridX = (torch.arange(fmapWidth, dtype=inputs.dtype, device=inputs.device)
-                 .view(1, 1, 1, fmapWidth))
+        return outputs
 
-        # Decoding
-        pred_class = torch.argmax(cls.data, dim=4)
-        pred_class_conf = (torch.softmax(cls, dim=4)
-                           .gather(4, pred_class.unsqueeze(-1)).data)
-        pred_conf = conf.data * pred_class_conf.squeeze(-1)
+    @torch.jit.export
+    def predict(self, inputs: List[Tensor]) -> List[Tuple[
+            Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]]:
 
-        size = conf.size()
-        pred_boxes = torch.zeros(
-            size[0], size[1], size[2], size[3], 4, device=inputs.device)
-        pred_boxes[..., 0] = (x.data + gridX) * self.gridWidth
-        pred_boxes[..., 1] = (y.data + gridY) * self.gridHeight
-        pred_boxes[..., 2] = \
-            torch.exp(w.data) * self.anchorW * self.gridWidth
-        pred_boxes[..., 3] = \
-            torch.exp(h.data) * self.anchorH * self.gridHeight
+        x = self.head_regression(inputs)
+        x = self.head_slicing(x)
 
-        idx = torch.argmax(degPart.data, dim=4)
-        pred_deg = (self.degAnchor[idx] +
-                    torch.gather(degShift.data, 4, idx.unsqueeze(-1)).squeeze(-1) *
-                    self.degValueScale)
+        return x
 
-        pred_conf = pred_conf.view(batch, -1)
-        pred_class = pred_class.view(batch, -1)
-        pred_boxes = pred_boxes.view(batch, -1, 4)
-        pred_deg = pred_deg.view(batch, -1)
+    @torch.jit.export
+    def decode(self, inputs: List[Tuple[
+        Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]]) \
+            -> List[Tuple[Tensor, Tensor, Tensor]]:
 
-        return (pred_conf, pred_class, pred_boxes, pred_deg)
+        outputs: List[Tuple[Tensor, Tensor, Tensor]] = []
+        for i, (obj, cls, x, y, w, h, degPart, degShift) in enumerate(inputs):
+
+            # Detach tensors
+            obj = obj.detach()
+            cls = cls.detach()
+            x = x.detach()
+            y = y.detach()
+            w = w.detach()
+            h = h.detach()
+            degPart = degPart.detach()
+            degShift = degShift.detach()
+
+            # Cache dtype, device and dimensions
+            device = obj.device
+            dtype = obj.dtype
+            batch, anchorSize, fmapHeight, fmapWidth = obj.size()
+
+            # Cache anchor
+            anchor = self.anchorList[i].to(device)
+            degAnchor = self.degAnchor[0].to(device)
+
+            # Find grid x, y
+            gridY = (torch.arange(fmapHeight, dtype=dtype, device=device)
+                     .view(1, 1, fmapHeight, 1))
+            gridX = (torch.arange(fmapWidth, dtype=dtype, device=device)
+                     .view(1, 1, 1, fmapWidth))
+
+            # Decoding
+            label = torch.argmax(cls, dim=4)
+            labelConf = torch.softmax(cls, dim=4).gather(
+                4, label.unsqueeze(-1))
+            conf = obj * labelConf.squeeze(-1)
+
+            idx = torch.argmax(degPart, dim=4)
+            degree = (degAnchor[idx] +
+                      torch.gather(degShift, 4, idx.unsqueeze(-1)).squeeze(-1) *
+                      self.degValueScale)
+
+            rboxes = torch.zeros(
+                batch, anchorSize, fmapHeight, fmapWidth, 5, device=device)
+            rboxes[..., 0] = degree
+            rboxes[..., 1] = ((x * 2 - 0.5) + gridX) * self.gridWidth[i]
+            rboxes[..., 2] = ((y * 2 - 0.5) + gridY) * self.gridHeight[i]
+            rboxes[..., 3] = \
+                torch.pow(w * 2, 2) * anchor[:, 0].view(1, -1, 1, 1)
+            rboxes[..., 4] = \
+                torch.pow(h * 2, 2) * anchor[:, 1].view(1, -1, 1, 1)
+
+            outputs.append((conf, label, rboxes))
+
+        return outputs
+
+    def forward(self, inputs: List[Tensor]) -> List[Tuple[Tensor, Tensor, Tensor]]:
+
+        x = self.predict(inputs)
+        x = self.decode(x)
+
+        return x
 
     @torch.jit.unused
     def loss(self, inputs, targets):
 
-        device = inputs.device
-        dtype = inputs.dtype
-
-        batch = inputs.size()[0]
+        device = inputs[0].device
+        dtype = inputs[0].dtype
 
         # Predict
-        (conf, cls, x, y, w, h, degPart, degShift) = self.predict(inputs)
-
-        # Build target
-        tList = []
-        for n in range(batch):
-            for anno in targets[n]:
-
-                degDiff = anno['degree'] - self.degAnchor
-                degPartIdx = torch.argmin(torch.abs(degDiff))
-                degShiftValue = degDiff[degPartIdx] / self.degValueScale
-
-                tList.append([
-                    n, anno['label'],
-                    anno['x'] / self.gridWidth,
-                    anno['y'] / self.gridHeight,
-                    anno['w'] / self.gridWidth,
-                    anno['h'] / self.gridHeight,
-                    degPartIdx.item(), degShiftValue.item()
-                ])
-
-        targets = torch.tensor(tList, dtype=dtype, device=device)
-        objs = targets.size()[0]
+        predList = self.predict(inputs)
 
         # Mask of feature map
-        objMask = torch.empty(
-            conf.size(), dtype=torch.bool, device=device).fill_(False)
-        nobjMask = torch.empty(
-            conf.size(), dtype=torch.bool, device=device).fill_(True)
+        objMaskList = targets[0]
 
-        # Get targets
-        if objs:
+        # Compute loss for rotated bounding box
+        objLoss = torch.tensor([0], dtype=dtype, device=device)
+        nobjLoss = torch.tensor([0], dtype=dtype, device=device)
+        clsLoss = torch.tensor([0], dtype=dtype, device=device)
+        boxLoss = torch.tensor([0], dtype=dtype, device=device)
+        degPartLoss = torch.tensor([0], dtype=dtype, device=device)
+        degShiftLoss = torch.tensor([0], dtype=dtype, device=device)
 
-            n = targets[:, 0].long()
-            clsT = targets[:, 1].long()
+        for headIdx, objMask in enumerate(objMaskList):
 
-            boxT = targets[:, 2:6]
-            xT = boxT[:, 0]
-            yT = boxT[:, 1]
-            wT = boxT[:, 2]
-            hT = boxT[:, 3]
+            nobjMask = (objMask == False)
+            objT = objMask.float()
 
-            degPartT = targets[:, 6].long()
-            degShiftT = targets[:, 7]
+            # Extract tensor
+            #   Predict: [conf, cls, x, y, w, h, degPart, degShift]
+            #   Index:   [   0,   1, 2, 3, 4, 5,       6,        7]
+            (obj, cls, x, y, w, h, degPart, degShift) = predList[headIdx]
 
-            # Get anchor scores
-            acrScore = self.anchor_score(boxT[:, 2:])
-            _, acrIdx = acrScore.max(dim=1)
+            # Accumulate loss
+            if objMask.sum() > 0:
 
-            # Set mask
-            xIdx = xT.long()
-            yIdx = yT.long()
+                # Objectness loss
+                objLoss += self.objNorm * F.binary_cross_entropy(
+                    obj[objMask], objT[objMask].to(device), reduction='sum')
 
-            objMask[n, acrIdx, yIdx, xIdx] = True
-            nobjMask[n, acrIdx, yIdx, xIdx] = False
+                # Extract targets
+                batchT, acrIdxT, xIdxT, yIdxT, clsT, xT, yT, wT, hT, degPartT, degShiftT = \
+                    targets[1][headIdx]
 
-            # Ignore objectness if anchor score greater than threshold
-            # for i, score in enumerate(acrScore):
-            #    nobjMask[n[i], (score > self.ignThres),
-            #             xIdx[i], yIdx[i]] = False
+                # Class loss
+                clsLoss += self.clsNorm * F.cross_entropy(
+                    cls[batchT, acrIdxT, yIdxT, xIdxT], clsT.to(device), reduction='sum')
 
-        # Build loss
-        confT = objMask.float()
+                # Bounding box loss
+                xLoss = F.mse_loss(
+                    x[batchT, acrIdxT, yIdxT, xIdxT], xT.to(device), reduction='sum')
+                yLoss = F.mse_loss(
+                    y[batchT, acrIdxT, yIdxT, xIdxT], yT.to(device), reduction='sum')
+                wLoss = F.mse_loss(
+                    w[batchT, acrIdxT, yIdxT, xIdxT], wT.to(device), reduction='sum')
+                hLoss = F.mse_loss(
+                    h[batchT, acrIdxT, yIdxT, xIdxT], hT.to(device), reduction='sum')
 
-        objLoss = F.binary_cross_entropy(conf[objMask], confT[objMask])
-        nobjLoss = F.binary_cross_entropy(conf[nobjMask], confT[nobjMask])
+                boxLoss += self.boxNorm * (xLoss + yLoss + wLoss + hLoss)
 
-        if objs:
+                # Degree loss
+                degPartLoss += self.degPartNorm * F.cross_entropy(
+                    degPart[batchT, acrIdxT, yIdxT, xIdxT],
+                    degPartT.to(device), reduction='sum')
+                degShiftLoss += self.degShiftNorm * F.mse_loss(
+                    degShift[batchT, acrIdxT, yIdxT, xIdxT, degPartT],
+                    degShiftT.to(device), reduction='sum')
 
-            # Class loss
-            clsLoss = F.cross_entropy(
-                cls[n, acrIdx, yIdx, xIdx], clsT, reduction='sum')
+            if nobjMask.sum() > 0:
 
-            # Bounding box loss
-            xLoss = F.mse_loss(
-                x[n, acrIdx, yIdx, xIdx], xT - xT.floor(), reduction='sum')
-            yLoss = F.mse_loss(
-                y[n, acrIdx, yIdx, xIdx], yT - yT.floor(), reduction='sum')
-            wLoss = F.mse_loss(
-                w[n, acrIdx, yIdx, xIdx],
-                torch.log(wT / self.anchor[acrIdx, 0]),
-                reduction='sum')
-            hLoss = F.mse_loss(
-                h[n, acrIdx, yIdx, xIdx],
-                torch.log(hT / self.anchor[acrIdx, 1]),
-                reduction='sum')
+                # Objectness loss
+                nobjLoss += F.binary_cross_entropy(
+                    obj[nobjMask], objT[nobjMask].to(device), reduction='sum')
 
-            boxLoss = xLoss + yLoss + wLoss + hLoss
+        # Total loss
+        loss = (
+            objLoss + nobjLoss + clsLoss + boxLoss + degPartLoss + degShiftLoss)
 
-            # Degree loss
-            degPartLoss = F.cross_entropy(
-                degPart[n, acrIdx, yIdx, xIdx], degPartT, reduction='sum')
-            degShiftLoss = F.mse_loss(
-                degShift[n, acrIdx, yIdx, xIdx, degPartT], degShiftT, reduction='sum')
-
-        else:
-
-            clsLoss = torch.tensor([0], dtype=dtype, device=device)
-            boxLoss = torch.tensor([0], dtype=dtype, device=device)
-            degPartLoss = torch.tensor([0], dtype=dtype, device=device)
-            degShiftLoss = torch.tensor([0], dtype=dtype, device=device)
-
-        loss = ((objLoss + nobjLoss + clsLoss +
-                 boxLoss + degPartLoss + degShiftLoss), 1)
-
-        # Estimation
-        objConf = conf[objMask].mean().item()
-        nobjConf = conf[nobjMask].mean().item()
-
-        clsAccu = 0
-        degCorr = 0
-        if objs:
-
-            # Class accuracy
-            clsAccu = (torch.argmax(
-                cls[n, acrIdx, yIdx, xIdx], dim=1) == clsT).sum().float().item()
-
-            # Degree correlation coefficient
-            degTarget = \
-                self.degAnchor[degPartT] + degShiftT * self.degValueScale
-            degIdx = torch.argmax(degPart[n, acrIdx, yIdx, xIdx], dim=1)
-            degPredict = (self.degAnchor[degIdx] +
-                          degShift[n, acrIdx, yIdx, xIdx, degIdx] *
-                          self.degValueScale)
-            degCorr = correlation_coefficient(degTarget, degPredict)
-
-        # Summarize accuracy
-        info = {
-            'obj': (objConf, 1),
-            'nobj': (nobjConf, 1),
-            'cls': (clsAccu, objs),
-            'deg': (degCorr, 1) if degCorr is not None else (0, 0)
-        }
-
-        return loss, info
-
-    @torch.jit.unused
-    def anchor_score(self, box):
-
-        box = box.view(box.size()[0], -1, 2)
-        anchor = self.anchor.to(box.device).unsqueeze(0)
-
-        bw, bh = box[..., 0], box[..., 1]
-        aw, ah = anchor[..., 0], anchor[..., 1]
-
-        interArea = torch.min(bw, aw) * torch.min(bh, ah)
-        unionArea = bw * bh + aw * ah - interArea
-
-        return interArea / (unionArea + 1e-8)
+        return (loss, 1), {}

@@ -11,6 +11,7 @@ using torch::from_blob;
 using torch::ScalarType;
 using torch::Tensor;
 using torch::tensor;
+using torch::indexing::Ellipsis;
 using torch::indexing::Slice;
 using torch::jit::IValue;
 using torch::jit::Object;
@@ -137,22 +138,30 @@ std::vector<RBox> YORODetector::Impl::detect(
     cv::Mat mat = pad_to_aspect(image, (float)width / height, &startX, &startY);
     float scale = float(mat.cols) / float(width);
 
-    // Forward
-    auto outputs = GeneralDetector::detect(mat).toTuple();
-    auto listRef = outputs->elements();
-    Tensor predConf = listRef[0].toTensor();
-    Tensor predClass = listRef[1].toTensor();
-    Tensor predBox = listRef[2].toTensor();
-    Tensor predDeg = listRef[3].toTensor();
+    // Forward, denormalize and flatten predictions
+    std::vector<std::tuple<Tensor, Tensor, Tensor>> fwOutputs;
+    auto outList = GeneralDetector::detect(mat).toList();
+    for (const IValue& tup : outList)
+    {
+        // Extract tensors
+        auto tupRef = tup.toTuple()->elements();
+        Tensor conf = tupRef[0].toTensor();
+        Tensor label = tupRef[1].toTensor();
+        Tensor rboxes = tupRef[2].toTensor();
 
-    // Denormalize
-    predBox.mul_(scale);
-    predBox.index({"...", Slice(0, 2)})
-        .sub_(tensor({{{startX, startY}}}, this->device));
+        // Denormalize
+        rboxes.index({Ellipsis, Slice(1, 5)}).mul_(scale);
+        rboxes.index({Ellipsis, Slice(1, 3)})
+            .sub_(tensor({{{{{startX, startY}}}}}, this->device));
+
+        fwOutputs.push_back({conf, label, rboxes});
+    }
+
+    auto flatOut = flatten_prediction(fwOutputs);
 
     // Processing non-maximum suppression
-    std::vector<std::vector<RBox>> nmsOut = yoro_api::non_maximum_suppression(
-        {predConf, predClass, predBox, predDeg}, confTh, nmsTh);
+    std::vector<std::vector<RBox>> nmsOut =
+        yoro_api::non_maximum_suppression(flatOut, confTh, nmsTh);
 
     return nmsOut[0];
 }

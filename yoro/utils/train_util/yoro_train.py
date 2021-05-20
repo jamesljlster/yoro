@@ -1,10 +1,12 @@
+import yaml
+
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
-from ... import api
-from ...datasets import RBoxSample, rbox_collate_fn
+from ... import ops
+from ...datasets import RBoxSample, load_class_names
 from ...transforms import \
     RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToAspect, RBox_ToTensor
 from ...layers import YOROLayer
@@ -22,15 +24,51 @@ class YOROTrain(BaseTrain):
         # Get child config
         cfgCons = cfg['construct']
         cfgTParam = cfg['train_param']
+        cfgData = cfg['dataset']
 
         # Get network input size
         height = cfgCons['height']
         width = cfgCons['width']
 
-        # Configure data augmentation
+        # Configure backbone
+        cfgBBone = cfgCons['backbone']
+        self.bboneClass = load_object(cfgBBone['name'])
+        self.bboneArgs = cfgBBone['args']
+        self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
+
+        # Configure yoro layer
+        numClasses = len(load_class_names(cfgData['names_file']))
+
+        src = torch.randn(1, 3, height, width)
+        out = self.backbone(src.to(self.dev))
+
+        self.suffixClass = YOROLayer
+        self.suffixArgs = {
+            'width': width,
+            'height': height,
+            'num_classes': numClasses,
+            'input_shapes': [tensor.size() for tensor in out],
+            'anchor': cfgCons['anchor'],
+            'deg_min': cfgCons['deg_min'],
+            'deg_max': cfgCons['deg_max'],
+            'deg_part_size': cfgCons['deg_part_size'],
+            'loss_norm': cfgTParam.get('loss_normalizer', {})
+        }
+
+        self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
+
+        # Configure data transformation
         tfPrefix = [RBox_PadToAspect(float(width) / height)]
-        tfSuffix = [RBox_Resize((height, width)),
-                    RBox_ToTensor()]
+        tfSuffix = [
+            RBox_Resize((height, width)),
+            RBox_ToTensor(
+                self.suffix.anchorList,
+                [tup[0].size()[-3:] for tup in self.suffix(out)],
+                [torch.tensor([w, h])
+                    for (w, h) in zip(self.suffix.gridWidth, self.suffix.gridHeight)],
+                self.suffix.degAnchor[0].clone(),
+                self.suffix.degValueScale)
+        ]
 
         cfgTf = cfg['transform']
         tfContent = [
@@ -50,50 +88,111 @@ class YOROTrain(BaseTrain):
             else Compose(tfPrefix + tfSuffix)
 
         # Configure dataset
-        cfgData = cfg['dataset']
         trainSet = RBoxSample(
             cfgData['train_dir'], cfgData['names_file'], transform=tfTrain,
             repeats=self.trainUnits)
         validSet = RBoxSample(
             cfgData['valid_dir'], cfgData['names_file'], transform=tfValid)
 
+        # Collate function for data loader
+        def rbox_tensor_collate(samples):
+
+            # Target storage
+            def _build_target_storage():
+                return [[] for _ in range(self.suffix.headSize)]
+
+            objs = _build_target_storage()
+            batchT = _build_target_storage()
+
+            acrIdxT = _build_target_storage()
+            xIdxT = _build_target_storage()
+            yIdxT = _build_target_storage()
+            clsT = _build_target_storage()
+
+            xT = _build_target_storage()
+            yT = _build_target_storage()
+            wT = _build_target_storage()
+            hT = _build_target_storage()
+
+            degPartT = _build_target_storage()
+            degShiftT = _build_target_storage()
+
+            # Collate image and annotations
+            images = []
+            rawAnnos = []
+            for batchIdx, (image, anno) in enumerate(samples):
+
+                images.append(image)
+                rawAnnos.append(anno[2])
+
+                for headIdx, obj in enumerate(anno[0]):
+                    objs[headIdx].append(obj)
+
+                acr, xIdx, yIdx, cls, x, y, w, h, degPart, degShift = anno[1][headIdx]
+
+                instSize = acr.size(0)
+                batchT[headIdx].append(
+                    torch.tensor([batchIdx] * instSize, dtype=torch.long))
+
+                acrIdxT[headIdx].append(acr)
+                xIdxT[headIdx].append(xIdx)
+                yIdxT[headIdx].append(yIdx)
+                clsT[headIdx].append(cls)
+                xT[headIdx].append(x)
+                yT[headIdx].append(y)
+                wT[headIdx].append(w)
+                hT[headIdx].append(h)
+                degPartT[headIdx].append(degPart)
+                degShiftT[headIdx].append(degShift)
+
+            images = torch.stack(images, 0)
+            objs = [torch.stack(obj, 0) for obj in objs]
+
+            def _gt_cat(gt_list, dtype=torch.float):
+                return [torch.cat(tens) if len(tens) > 0 else torch.tensor([], dtype=dtype)
+                        for tens in gt_list]
+
+            batchT = _gt_cat(batchT, torch.long)
+            acrIdxT = _gt_cat(acrIdxT, torch.long)
+            xIdxT = _gt_cat(xIdxT, torch.long)
+            yIdxT = _gt_cat(yIdxT, torch.long)
+            clsT = _gt_cat(clsT, torch.long)
+            xT = _gt_cat(xT)
+            yT = _gt_cat(yT)
+            wT = _gt_cat(wT)
+            hT = _gt_cat(hT)
+            degPartT = _gt_cat(degPartT, torch.long)
+            degShiftT = _gt_cat(degShiftT)
+
+            targets = []
+            for headIdx in range(self.suffix.headSize):
+                targets.append((
+                    batchT[headIdx],
+                    acrIdxT[headIdx],
+                    xIdxT[headIdx],
+                    yIdxT[headIdx],
+                    clsT[headIdx],
+                    xT[headIdx],
+                    yT[headIdx],
+                    wT[headIdx],
+                    hT[headIdx],
+                    degPartT[headIdx],
+                    degShiftT[headIdx])
+                )
+
+            return images, (objs, targets, rawAnnos)
+
+        # Configure data loader
         self.traLoader = DataLoader(
-            trainSet, shuffle=True, collate_fn=rbox_collate_fn,
+            trainSet, shuffle=True, collate_fn=rbox_tensor_collate,
             batch_size=cfgTParam['batch'],
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'])
         self.tstLoader = DataLoader(
-            validSet, shuffle=False, collate_fn=rbox_collate_fn,
+            validSet, shuffle=False, collate_fn=rbox_tensor_collate,
             batch_size=cfgTParam['batch'],
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'])
-
-        # Configure backbone
-        cfgBBone = cfgCons['backbone']
-        self.bboneClass = load_object(cfgBBone['name'])
-        self.bboneArgs = cfgBBone['args']
-        self.backbone = self.bboneClass(**self.bboneArgs).to(self.dev)
-
-        # Configure yoro layer
-        src = torch.randn(1, 3, height, width)
-        out = self.backbone(src.to(self.dev))
-        fmapSize = out.size()
-
-        self.suffixClass = YOROLayer
-        self.suffixArgs = {
-            'in_channels': fmapSize[1],
-            'num_classes': trainSet.numClasses,
-            'width': width,
-            'height': height,
-            'fmap_width': fmapSize[2],
-            'fmap_height': fmapSize[3],
-            'anchor': cfgCons['anchor'],
-            'deg_min': cfgCons['deg_min'],
-            'deg_max': cfgCons['deg_max'],
-            'deg_part_size': cfgCons['deg_part_size']
-        }
-
-        self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
 
         # Configure optimizer
         cfgOptim = cfgTParam['optimizer']
@@ -119,101 +218,65 @@ class YOROEvaluator(BaseEvaluator):
         self.simTh = sim_threshold
 
     def post_process(self, preds):
-        return api.non_maximum_suppression(preds, self.confTh, self.nmsTh)
+        preds = ops.flatten_prediction(preds)
+        return ops.non_maximum_suppression(preds, self.confTh, self.nmsTh)
 
     def evaluate(self, dts_gts):
 
-        # Record all detection truth and ground truth
-        def _build_truth_storage():
-            return (
-                {idx: {} for idx in range(self.numClasses)},
-                [list() for _ in range(len(dts_gts))]
-            )
-
-        dts, dtidPerImg = _build_truth_storage()
-        gts, gtidPerImg = _build_truth_storage()
-        gtidPerClass = [list() for _ in range(self.numClasses)]
-
+        gtCountPerClass = [0] * self.numClasses
         apTable = [list() for _ in range(self.numClasses)]
 
         gtCounter = 0
         dtCounter = 0
-        for imgInd, (pred, gt) in enumerate(dts_gts):
+        for predGroup, gtGroup in dts_gts:
+            for dts, gts in zip(predGroup, gtGroup[2]):
 
-            # Convert ground truth
-            for inst in gt:
+                dtIds = torch.arange(len(dts))
+                gtIds = torch.arange(len(dts))
+                dtsPaired = []
 
-                gtId = gtCounter
-                gtCounter += 1
+                # Record ground truth count
+                for inst in gts:
+                    gtCountPerClass[inst['label']] += 1
 
-                gtTmp = api.RBox()
-                gtTmp.conf = 1.0
-                gtTmp.label = inst['label']
-                gtTmp.degree = inst['degree']
-                gtTmp.x = inst['x']
-                gtTmp.y = inst['y']
-                gtTmp.w = inst['w']
-                gtTmp.h = inst['h']
+                # Detection result pairing
+                if len(dts) > 0 and len(gts) > 0:
 
-                gts[gtId] = gtTmp
-                gtidPerImg[imgInd].append(gtId)
-                gtidPerClass[gtTmp.label].append(gtId)
+                    scores = rbox_similarity(dts, gts)
 
-            # Record detection truth
-            for dt in pred:
+                    while True:
 
-                dtId = dtCounter
-                dtCounter += 1
+                        # Get the highest score for current iteration
+                        score = torch.max(scores)
+                        if score < self.simTh:
+                            break
 
-                dts[dtId] = dt
-                dtidPerImg[imgInd].append(dtId)
+                        maxPos = torch.where(scores == score)
+                        dtId = maxPos[0][0]
+                        gtId = maxPos[1][0]
 
-            # Detection result pairing
-            dtsPaired = []
+                        if dts[dtId]['label'] == gts[gtId]['label']:
 
-            dtIds = dtidPerImg[imgInd]
-            gtIds = gtidPerImg[imgInd]
+                            # Record this pair as true positive
+                            dtsPaired.append(dtId)
+                            apTable[dts[dtId]['label']].append(
+                                (dts[dtId]['conf'], True)
+                            )
 
-            if len(gtIds) > 0 and len(dtIds) > 0:
-                scores = torch.stack([
-                    rbox_similarity(dts[dtId], [gts[gtId] for gtId in gtIds])
-                    for dtId in dtIds
-                ])
+                            # Clear matched dt and gt
+                            scores[dtId, :] = -1
+                            scores[:, gtId] = -1
 
-                while torch.max(scores) > self.simTh:
+                        else:
 
-                    # Get the highest score for current iteration
-                    score = torch.max(scores)
-                    maxPos = torch.where(scores == score)
-                    rowInd = maxPos[0][0]
-                    colInd = maxPos[1][0]
+                            # Clear this score due to label mismatch
+                            scores[dtId, gtId] = -1
 
-                    if dts[dtIds[rowInd]].label == gts[gtIds[colInd]].label:
-
-                        # Record this pair as true positive
-                        dtId = dtIds[rowInd]
-                        gtId = gtIds[colInd]
-
-                        dtsPaired.append(dtId)
-                        apTable[dts[dtIds[rowInd]].label].append(
-                            (dts[dtId].conf, True)
-                        )
-
-                        # Clear matched dt and gt
-                        scores[rowInd, :] = -1
-                        scores[:, colInd] = -1
-
-                    else:
-
-                        # Clear this score due to label mismatch
-                        scores[rowInd, colInd] = -1
-
-            # Record for false positive
-            for dtId in dtIds:
-                if dtId not in dtsPaired:
-                    apTable[dts[dtId].label].append(
-                        (dts[dtId].conf, False)
-                    )
+                # Record false positive
+                for dtId in dtIds:
+                    if dtId not in dtsPaired:
+                        apTable[dts[dtId]['label']].append(
+                            (dts[dtId]['conf'], False))
 
         # Sort by confidence
         for cId in range(self.numClasses):
@@ -241,11 +304,14 @@ class YOROEvaluator(BaseEvaluator):
                     else:
                         fpCount += 1
 
-                    precision = float(tpCount) / (tpCount + fpCount)
-                    recall = (
-                        float(tpCount) / (tpCount + len(gtidPerClass[cId]) - recallCount))
-                    tmpAP += (recall - recallHold) * precision
+                    def safe_division(n, d):
+                        return n / d if d else 0.0
 
+                    precision = safe_division(tpCount, tpCount + fpCount)
+                    recall = safe_division(
+                        tpCount, tpCount + gtCountPerClass[cId] - recallCount)
+
+                    tmpAP += (recall - recallHold) * precision
                     recallHold = recall
 
                 classAP[cId] = tmpAP
@@ -253,23 +319,24 @@ class YOROEvaluator(BaseEvaluator):
             else:
                 hasInst[cId] = 0
 
-        mAP = (torch.sum(torch.tensor(classAP)) /
-               torch.sum(torch.tensor(hasInst)))
+        mAP = torch.tensor(0)
+        if torch.sum(torch.tensor(hasInst)) > 0:
+            mAP = (torch.sum(torch.tensor(classAP)) /
+                   torch.sum(torch.tensor(hasInst)))
 
         return {'mAP': mAP.item()}
 
 
 def get_rbox_tensor(rbox):
-    return [rbox.degree, rbox.x, rbox.y, rbox.w, rbox.h]
+    return [rbox['degree'], rbox['x'], rbox['y'], rbox['w'], rbox['h']]
 
 
 def rbox_similarity(pred1, pred2):
-    if len(pred2) == 0:
+    if (len(pred2) == 0) or (len(pred1) == 0):
         return None
     else:
-        return api.rbox_similarity(
-            torch.tensor([get_rbox_tensor(pred1)], dtype=torch.float32),
+        return ops.rbox_similarity(
             torch.tensor(
-                [get_rbox_tensor(rbox) for rbox in pred2],
-                dtype=torch.float32)
-        ).squeeze(0)
+                [get_rbox_tensor(rbox) for rbox in pred1], dtype=torch.float32),
+            torch.tensor(
+                [get_rbox_tensor(rbox) for rbox in pred2], dtype=torch.float32))

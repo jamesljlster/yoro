@@ -206,8 +206,7 @@ class BaseTrain(object):
             if self.evaluator is not None:
                 preds = self.suffix(out)
                 preds = self.evaluator.post_process(preds)
-                for pair in zip(preds, targets):
-                    predPair.append(pair)
+                predPair.append((preds, targets))
 
             # Accumulate informations
             runInfo = info_add(runInfo, info)

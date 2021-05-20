@@ -5,7 +5,7 @@ import cv2 as cv
 import numpy as np
 
 from yoro.visual import rbox_draw
-from yoro.api import non_maximum_suppression as nms
+# from yoro.api import non_maximum_suppression as nms
 
 if __name__ == '__main__':
 
@@ -40,14 +40,45 @@ if __name__ == '__main__':
     # Predict
     inputs = (torch.FloatTensor(mat) / 255).unsqueeze(0)
     outputs = model(inputs)
-    (pred_conf, pred_class, pred_class_conf, pred_boxes, pred_deg) = outputs
 
-    # Denormalize
-    shift = torch.tensor([[[startX, startY]]],
-                         dtype=inputs.dtype, device=inputs.device)
-    pred_boxes.mul_(tarSize / netWidth)
-    pred_boxes[..., 0:2].sub_(shift)
+    # Convert results
+    results = []
+    confTh = 0.7
 
+    shift = torch.tensor(
+        [[[startX, startY]]], dtype=inputs.dtype, device=inputs.device)
+    for i, (conf, label, boxes, degree) in enumerate(outputs):
+
+        # Denormalize
+        boxes.mul_(tarSize / netWidth)
+        boxes[..., 0:2].sub_(shift)
+
+        # Convert result
+        results += [
+            {
+                'label': label[n, a, h, w].item(),
+                'x': boxes[n, a, h, w, 0].item(),
+                'y': boxes[n, a, h, w, 1].item(),
+                'w': boxes[n, a, h, w, 2].item(),
+                'h': boxes[n, a, h, w, 3].item(),
+                'degree': degree[n, a, h, w].item()
+            }
+            for n in range(conf.size(0))
+            for a in range(conf.size(1))
+            for h in range(conf.size(2))
+            for w in range(conf.size(3))
+            if conf[n, a, h, w] >= confTh
+        ]
+
+    for inst in results:
+        print(inst)
+
+    # Draw result
+    result = rbox_draw([img], [results])
+    cv.imshow('result', result[0])
+    cv.waitKey(0)
+
+    """
     # Apply non-maximum suppression
     confTh = 0.9
     nmsTh = 0.7
@@ -58,3 +89,4 @@ if __name__ == '__main__':
     result = rbox_draw([img], nmsOut)
     cv.imshow('result', result[0])
     cv.waitKey(0)
+    """

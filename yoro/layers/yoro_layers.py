@@ -240,10 +240,9 @@ class YOROLayer(Module):
             conf = obj * labelConf.squeeze(-1)
 
             idx = torch.argmax(degPart, dim=4)
-            degree = torch.unsqueeze(
-                degAnchor[idx] +
-                torch.gather(degShift, 4, idx.unsqueeze(-1)).squeeze(-1) *
-                self.degValueScale, 0)
+            degree = (degAnchor[idx] +
+                      torch.gather(degShift, 4, idx.unsqueeze(-1)).squeeze(-1) *
+                      self.degValueScale)
 
             rboxes = torch.zeros(
                 batch, anchorSize, fmapHeight, fmapWidth, 5, device=device)

@@ -12,22 +12,6 @@ from .functional import correlation_coefficient
 
 class YOROLayer(Module):
 
-    """
-    __constants__ = [
-        'numClasses', 'width', 'height', 'gridWidth', 'gridHeight',
-        'anchorSize',
-        'degMin', 'degMax', 'degRange',
-        'degPartSize', 'degValueScale',
-        'degPartDepth', 'degValueDepth',
-        'bboxDepth', 'classDepth', 'objDepth',
-        'groupDepth', 'fmapDepth'
-    ]
-
-    def __init__(self, in_channels, num_classes,
-                 width: int, height: int, fmap_width, fmap_height, anchor,
-                 deg_min=-180, deg_max=180, deg_part_size=10, conv_params={}):
-    """
-
     def __init__(self,
                  width: int, height: int, num_classes: int,
                  input_shapes: List[torch.Size], anchor: List[List[list]],

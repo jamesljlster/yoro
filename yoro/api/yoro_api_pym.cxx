@@ -48,15 +48,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def(py::init<const std::string&>())
         .def("detect", &RotationDetector::detect);
 
+    m.def("bbox_to_corners", bbox_to_corners);
     m.def("rbox_similarity", rbox_similarity);
-    m.def(
-        "non_maximum_suppression",
-        py::overload_cast<
-            const std::tuple<
-                torch::Tensor,
-                torch::Tensor,
-                torch::Tensor,
-                torch::Tensor>&,
-            float,
-            float>(non_maximum_suppression));
+    m.def("flatten_prediction", flatten_prediction);
+    m.def("non_maximum_suppression", non_maximum_suppression);
 }

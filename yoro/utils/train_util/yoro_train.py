@@ -1,4 +1,5 @@
 import yaml
+import pprint
 
 import torch
 from torch import optim
@@ -42,6 +43,13 @@ class YOROTrain(BaseTrain):
         src = torch.randn(1, 3, height, width)
         out = self.backbone(src.to(self.dev))
 
+        lossNorm = cfgTParam.get('loss_normalizer', {})
+        if lossNorm != {}:
+            pp = pprint.PrettyPrinter(indent=2)
+            print('Using custom loss normalizer:')
+            pp.pprint(lossNorm)
+            print()
+
         self.suffixClass = YOROLayer
         self.suffixArgs = {
             'width': width,
@@ -52,7 +60,7 @@ class YOROTrain(BaseTrain):
             'deg_min': cfgCons['deg_min'],
             'deg_max': cfgCons['deg_max'],
             'deg_part_size': cfgCons['deg_part_size'],
-            'loss_norm': cfgTParam.get('loss_normalizer', {})
+            'loss_norm': lossNorm
         }
 
         self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)

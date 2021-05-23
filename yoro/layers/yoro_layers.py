@@ -14,7 +14,7 @@ class YOROLayer(Module):
 
     def __init__(self,
                  width: int, height: int, num_classes: int,
-                 input_shapes: List[torch.Size], anchor: List[List[list]],
+                 input_shapes: List[torch.Size], anchor: List[List[List[float]]],
                  deg_min: int = -180, deg_max: int = 180, deg_part_size: int = 10,
                  conv_params: List[Dict] = [{}], loss_norm: Dict = {}
                  ):
@@ -28,11 +28,10 @@ class YOROLayer(Module):
         headSize = len(input_shapes)
 
         # Check convolution parameters
-        if isinstance(conv_params, dict):
-            conv_params = [conv_params] * headSize
-
-        assert len(conv_params) != headSize, \
-            'Numbers of \"conv_params\" does not match with desire head size.'
+        if len(conv_params) == 1:
+            conv_params = conv_params * headSize
+        assert len(conv_params) == headSize, \
+            'Numbers of \"conv_params\" does not match with backbone head size.'
 
         # Save parameters
         self.numClasses = num_classes
@@ -56,18 +55,22 @@ class YOROLayer(Module):
 
         # Build anchor
         if len(anchor) == 1:
-            anchor = [anchor] * headSize
+            anchor = anchor * headSize
+        assert len(anchor) == headSize, \
+            'Numbers of \"anchor\" does not match with backbone head size.'
 
         self.anchorList: List[torch.Tensor] = [
             torch.tensor(anc) for anc in anchor]
         self.anchorSizeList: List[int] = []
 
         for i, anc in enumerate(self.anchorList):
-            size, dim = anc.size()
+
+            size = anc.size(0)
+            dim = anc.size()[1:]
 
             # Check anchor format
-            assert dim == 2, \
-                'Anchor last dimension size is not 2 (width, height)'
+            assert dim == torch.Size([2]), \
+                f'Anchor last dimension size is not 2 (width, height). Got {dim}'
             self.anchorSizeList.append(size)
 
         # Feature map specification construction: degree
@@ -100,9 +103,6 @@ class YOROLayer(Module):
             self.groupDepth * ancSize for ancSize in self.anchorSizeList]
 
         # Build regressor
-        if len(conv_params) == 1:
-            conv_params = conv_params * headSize
-
         regressor = []
         for i, conv_param in enumerate(conv_params):
 

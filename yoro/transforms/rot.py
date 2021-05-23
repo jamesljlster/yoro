@@ -1,7 +1,7 @@
 from torchvision.transforms import functional as F
 from torchvision.transforms import ToTensor, RandomAffine, ColorJitter
 
-from .rbox import RBox_ColorJitter, RBox_ToTensor, pad_to_aspect_param
+from .rbox import RBox_ColorJitter, pad_to_aspect_param
 
 
 class Rot_PadToAspect(object):
@@ -56,5 +56,18 @@ class Rot_Resize(object):
         return (image, anno.copy())
 
 
-class Rot_ToTensor(RBox_ToTensor):
-    pass
+class Rot_ToTensor(object):
+
+    def __init__(self):
+
+        # Image transform
+        self.toTensor = ToTensor()
+
+    def __call__(self, sample):
+
+        image, anno = sample
+
+        # Apply image transform
+        image = self.toTensor(image)
+
+        return (image, anno)

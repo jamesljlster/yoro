@@ -1,8 +1,7 @@
+from torch import Tensor
 from torch.nn import Module, AdaptiveAvgPool2d
 from torchvision.models import resnet
-
-
-__all__ = ['ResNet_FCN', 'ResNet_Feature']
+from typing import List
 
 
 class ResNet_FCN(Module):
@@ -19,7 +18,7 @@ class ResNet_FCN(Module):
         # Reset base forward method (reserve feature blocks only)
         self.base.forward = super(ResNet_FCN, self).forward
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> List[Tensor]:
 
         x = self.base.conv1(x)
         x = self.base.bn1(x)
@@ -31,7 +30,7 @@ class ResNet_FCN(Module):
         x = self.base.layer3(x)
         x = self.base.layer4(x)
 
-        return x
+        return [x]
 
 
 class ResNet_Feature(Module):
@@ -41,7 +40,7 @@ class ResNet_Feature(Module):
         self.resnet = ResNet_FCN(model_name, **kwargs)
         self.avgpool = AdaptiveAvgPool2d(pool_size)
 
-    def forward(self, x):
-        x = self.resnet(x)
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.resnet(x)[0]
         x = self.avgpool(x)
         return x

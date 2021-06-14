@@ -2,6 +2,7 @@ import torch
 
 from yoro.layers import YOROLayer
 from yoro.ops import rbox_similarity, flatten_prediction, non_maximum_suppression
+from yoro.ops import ciou_loss
 
 width = 224
 height = 224
@@ -9,6 +10,7 @@ num_classes = 2
 
 if __name__ == '__main__':
 
+    # Test ops for rotated bounding box
     rbox1 = torch.tensor([
         [45., 10., 20., 25., 35.],
         [75., 5., 25., 40., 50.],
@@ -35,4 +37,12 @@ if __name__ == '__main__':
     preds = flatten_prediction(preds)
     for pred in preds:
         print(pred.size())
+    print()
     preds = non_maximum_suppression(preds, 0.5, 1.0)
+
+    # Test CIoU loss
+    bbox1 = rbox1[:, 1:]
+    bbox2 = rbox2[:, 1:]
+    loss, iou = ciou_loss(bbox1, bbox2)
+    print('Loss:', loss)
+    print('IoU:', iou)

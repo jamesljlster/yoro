@@ -11,7 +11,7 @@ namespace yoro_api
 {
 torch::Tensor bbox_to_corners(const torch::Tensor& bbox);
 torch::Tensor rbox_similarity(
-    const torch::Tensor& rbox1, const torch::Tensor& rbox2, float eps = 1e-4);
+    const torch::Tensor& rbox1, const torch::Tensor& rbox2);
 
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> flatten_prediction(
     const std::vector<std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>>&

@@ -19,7 +19,7 @@ def bbox_to_corners(bbox: Tensor) -> Tensor:
     return corners
 
 
-def rbox_similarity(rbox1: Tensor, rbox2: Tensor, eps: float = 1e-4) -> Tensor:
+def rbox_similarity(rbox1: Tensor, rbox2: Tensor) -> Tensor:
     """
     Input: [[deg, x, y, w, h]]
     Reference: https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
@@ -37,7 +37,7 @@ def rbox_similarity(rbox1: Tensor, rbox2: Tensor, eps: float = 1e-4) -> Tensor:
     inter = wh[..., 0] * wh[..., 1]
     union = ((rbox1[..., 3] * rbox1[..., 4])[:, None] +
              rbox2[..., 3] * rbox2[..., 4] - inter)
-    ious = inter / (union + eps)
+    ious = inter / union
 
     # Find degree similarity
     rad1 = torch.deg2rad(rbox1[..., 0])

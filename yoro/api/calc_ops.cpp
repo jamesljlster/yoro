@@ -27,7 +27,7 @@ Tensor bbox_to_corners(const Tensor& bbox)
 }
 
 // rbox: deg, x, y, w, h
-Tensor rbox_similarity(const Tensor& rbox1, const Tensor& rbox2, float eps)
+Tensor rbox_similarity(const Tensor& rbox1, const Tensor& rbox2)
 {
     // BBox to corners
     Tensor corners1 = bbox_to_corners(rbox1.index({Ellipsis, Slice(1, 5)}));
@@ -47,7 +47,7 @@ Tensor rbox_similarity(const Tensor& rbox1, const Tensor& rbox2, float eps)
                            .index({Ellipsis, None}) +
                        rbox2.index({Ellipsis, 3}) * rbox2.index({Ellipsis, 4}) -
                        interArea;
-    Tensor ious = interArea / (unionArea + eps);
+    Tensor ious = interArea / unionArea;
 
     // Find degree similarity
     Tensor rad1 = deg2rad(rbox1.index({Ellipsis, 0}));

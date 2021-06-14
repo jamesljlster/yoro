@@ -117,11 +117,7 @@ class YOROTrain(BaseTrain):
             yIdxT = _build_target_storage()
             clsT = _build_target_storage()
 
-            xT = _build_target_storage()
-            yT = _build_target_storage()
-            wT = _build_target_storage()
-            hT = _build_target_storage()
-
+            bboxT = _build_target_storage()
             degPartT = _build_target_storage()
             degShiftT = _build_target_storage()
 
@@ -136,8 +132,8 @@ class YOROTrain(BaseTrain):
                 for headIdx in range(len(anno[0])):
 
                     objs[headIdx].append(anno[0][headIdx])
-                    (acr, xIdx, yIdx, cls, x, y, w, h,
-                     degPart, degShift) = anno[1][headIdx]
+                    (acr, xIdx, yIdx, cls, bbox, degPart, degShift) = \
+                        anno[1][headIdx]
 
                     instSize = acr.size(0)
                     batchT[headIdx].append(
@@ -147,10 +143,7 @@ class YOROTrain(BaseTrain):
                     xIdxT[headIdx].append(xIdx)
                     yIdxT[headIdx].append(yIdx)
                     clsT[headIdx].append(cls)
-                    xT[headIdx].append(x)
-                    yT[headIdx].append(y)
-                    wT[headIdx].append(w)
-                    hT[headIdx].append(h)
+                    bboxT[headIdx].append(bbox)
                     degPartT[headIdx].append(degPart)
                     degShiftT[headIdx].append(degShift)
 
@@ -166,10 +159,7 @@ class YOROTrain(BaseTrain):
             xIdxT = _gt_cat(xIdxT, torch.long)
             yIdxT = _gt_cat(yIdxT, torch.long)
             clsT = _gt_cat(clsT, torch.long)
-            xT = _gt_cat(xT)
-            yT = _gt_cat(yT)
-            wT = _gt_cat(wT)
-            hT = _gt_cat(hT)
+            bboxT = _gt_cat(bboxT)
             degPartT = _gt_cat(degPartT, torch.long)
             degShiftT = _gt_cat(degShiftT)
 
@@ -181,10 +171,7 @@ class YOROTrain(BaseTrain):
                     xIdxT[headIdx],
                     yIdxT[headIdx],
                     clsT[headIdx],
-                    xT[headIdx],
-                    yT[headIdx],
-                    wT[headIdx],
-                    hT[headIdx],
+                    bboxT[headIdx],
                     degPartT[headIdx],
                     degShiftT[headIdx])
                 )

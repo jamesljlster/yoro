@@ -7,6 +7,7 @@ from torch.nn import functional as F
 
 from typing import List, Dict, Tuple
 
+from .. import ops
 from .functional import correlation_coefficient
 
 
@@ -131,10 +132,9 @@ class YOROLayer(Module):
 
     @torch.jit.export
     def head_slicing(self, inputs: List[Tensor]) -> List[Tuple[
-            Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]]:
+            Tensor, Tensor, Tensor, Tensor, Tensor]]:
 
-        outputs: List[Tuple[
-            Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]] = []
+        outputs: List[Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]] = []
         for i, head in enumerate(inputs):
 
             # Get tensor dimensions
@@ -158,10 +158,6 @@ class YOROLayer(Module):
             # Get outputs: bounding box
             base += self.classDepth
             boxes = torch.sigmoid(head[..., base:base+self.bboxDepth])
-            x = boxes[..., 0]
-            y = boxes[..., 1]
-            w = boxes[..., 2]
-            h = boxes[..., 3]
 
             # Get outputs: degree partition
             base += self.bboxDepth
@@ -171,13 +167,13 @@ class YOROLayer(Module):
             base += self.degPartDepth
             degShift = head[..., base:base + self.degValueDepth]
 
-            outputs.append((obj, cls, x, y, w, h, degPart, degShift))
+            outputs.append((obj, cls, boxes, degPart, degShift))
 
         return outputs
 
     @torch.jit.export
     def predict(self, inputs: List[Tensor]) -> List[Tuple[
-            Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]]:
+            Tensor, Tensor, Tensor, Tensor, Tensor]]:
 
         x = self.head_regression(inputs)
         x = self.head_slicing(x)
@@ -185,20 +181,20 @@ class YOROLayer(Module):
         return x
 
     @torch.jit.export
-    def decode(self, inputs: List[Tuple[
-        Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]]) \
+    def decode(self, inputs: List[Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]]) \
             -> List[Tuple[Tensor, Tensor, Tensor]]:
 
         outputs: List[Tuple[Tensor, Tensor, Tensor]] = []
-        for i, (obj, cls, x, y, w, h, degPart, degShift) in enumerate(inputs):
+        for i, (obj, cls, boxes, degPart, degShift) in enumerate(inputs):
 
             # Detach tensors
             obj = obj.detach()
             cls = cls.detach()
-            x = x.detach()
-            y = y.detach()
-            w = w.detach()
-            h = h.detach()
+            boxes = boxes.detach()
+            x = boxes[..., 0]
+            y = boxes[..., 1]
+            w = boxes[..., 2]
+            h = boxes[..., 3]
             degPart = degPart.detach()
             degShift = degShift.detach()
 
@@ -275,9 +271,9 @@ class YOROLayer(Module):
             objT = objMask.float()
 
             # Extract tensor
-            #   Predict: [conf, cls, x, y, w, h, degPart, degShift]
-            #   Index:   [   0,   1, 2, 3, 4, 5,       6,        7]
-            (obj, cls, x, y, w, h, degPart, degShift) = predList[headIdx]
+            #   Predict: [conf, cls, boxes, degPart, degShift]
+            #   Index:   [   0,   1,     2,       6,        7]
+            (obj, cls, boxes, degPart, degShift) = predList[headIdx]
 
             # Accumulate loss
             if objMask.sum() > 0:
@@ -287,7 +283,7 @@ class YOROLayer(Module):
                     obj[objMask], objT[objMask].to(device), reduction='sum')
 
                 # Extract targets
-                batchT, acrIdxT, xIdxT, yIdxT, clsT, xT, yT, wT, hT, degPartT, degShiftT = \
+                batchT, acrIdxT, xIdxT, yIdxT, clsT, bboxT, degPartT, degShiftT = \
                     targets[1][headIdx]
 
                 # Class loss
@@ -295,16 +291,9 @@ class YOROLayer(Module):
                     cls[batchT, acrIdxT, yIdxT, xIdxT], clsT.to(device), reduction='sum')
 
                 # Bounding box loss
-                xLoss = F.mse_loss(
-                    x[batchT, acrIdxT, yIdxT, xIdxT], xT.to(device), reduction='sum')
-                yLoss = F.mse_loss(
-                    y[batchT, acrIdxT, yIdxT, xIdxT], yT.to(device), reduction='sum')
-                wLoss = F.mse_loss(
-                    w[batchT, acrIdxT, yIdxT, xIdxT], wT.to(device), reduction='sum')
-                hLoss = F.mse_loss(
-                    h[batchT, acrIdxT, yIdxT, xIdxT], hT.to(device), reduction='sum')
-
-                boxLoss += self.boxNorm * (xLoss + yLoss + wLoss + hLoss)
+                ciouLoss, iou = ops.ciou_loss(
+                    boxes[batchT, acrIdxT, yIdxT, xIdxT, :], bboxT, reduction='sum')
+                boxLoss += self.boxNorm * ciouLoss
 
                 # Degree loss
                 degPartLoss += self.degPartNorm * F.cross_entropy(

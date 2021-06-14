@@ -246,11 +246,7 @@ class TargetBuilder(object):
         yIdxT = _build_target_storage()
         clsT = _build_target_storage()
 
-        xT = _build_target_storage()
-        yT = _build_target_storage()
-        wT = _build_target_storage()
-        hT = _build_target_storage()
-
+        bboxT = _build_target_storage()
         degPartT = _build_target_storage()
         degShiftT = _build_target_storage()
 
@@ -300,13 +296,10 @@ class TargetBuilder(object):
                     yIdxT[headIdx].append(yIdx)
                     clsT[headIdx].append(labels[rowInd])
 
-                    xT[headIdx].append((normCoord[0] - xIdx + 0.5) / 2.0)
-                    yT[headIdx].append((normCoord[1] - yIdx + 0.5) / 2.0)
-
-                    normSize = torch.sqrt(
+                    xy = (normCoord - torch.stack([xIdx, yIdx]) + 0.5) / 2.0
+                    wh = torch.sqrt(
                         boxesSize[rowInd] / self.anchorList[headIdx][acrIdx]) / 2.0
-                    wT[headIdx].append(normSize[0])
-                    hT[headIdx].append(normSize[1])
+                    bboxT[headIdx].append(torch.cat([xy, wh]).tolist())
 
                     degDiff = degrees[rowInd] - self.degAnchor
                     degPartIdx = torch.argmin(torch.abs(degDiff))
@@ -317,12 +310,9 @@ class TargetBuilder(object):
         targets = [
             [torch.tensor(elem, dtype=dtype) for (elem, dtype) in
                 zip(tup, [torch.long, torch.long, torch.long, torch.long,
-                          torch.float, torch.float, torch.float, torch.float,
-                          torch.long, torch.float
-                          ])]
+                          torch.float, torch.long, torch.float])]
             for tup in zip(acrIdxT, xIdxT, yIdxT, clsT,
-                           xT, yT, wT, hT,
-                           degPartT, degShiftT)]
+                           bboxT, degPartT, degShiftT)]
 
         return objs, targets, anno_list
 

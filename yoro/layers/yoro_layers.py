@@ -292,7 +292,8 @@ class YOROLayer(Module):
 
                 # Bounding box loss
                 ciouLoss, iou = ops.ciou_loss(
-                    boxes[batchT, acrIdxT, yIdxT, xIdxT, :], bboxT, reduction='sum')
+                    boxes[batchT, acrIdxT, yIdxT, xIdxT, :],
+                    bboxT.to(device), reduction='sum')
                 boxLoss += self.boxNorm * ciouLoss
 
                 # Degree loss

@@ -133,25 +133,26 @@ class YOROTrain(BaseTrain):
                 images.append(image)
                 rawAnnos.append(anno[2])
 
-                for headIdx, obj in enumerate(anno[0]):
-                    objs[headIdx].append(obj)
+                for headIdx in range(len(anno[0])):
 
-                acr, xIdx, yIdx, cls, x, y, w, h, degPart, degShift = anno[1][headIdx]
+                    objs[headIdx].append(anno[0][headIdx])
+                    (acr, xIdx, yIdx, cls, x, y, w, h,
+                     degPart, degShift) = anno[1][headIdx]
 
-                instSize = acr.size(0)
-                batchT[headIdx].append(
-                    torch.tensor([batchIdx] * instSize, dtype=torch.long))
+                    instSize = acr.size(0)
+                    batchT[headIdx].append(
+                        torch.tensor([batchIdx] * instSize, dtype=torch.long))
 
-                acrIdxT[headIdx].append(acr)
-                xIdxT[headIdx].append(xIdx)
-                yIdxT[headIdx].append(yIdx)
-                clsT[headIdx].append(cls)
-                xT[headIdx].append(x)
-                yT[headIdx].append(y)
-                wT[headIdx].append(w)
-                hT[headIdx].append(h)
-                degPartT[headIdx].append(degPart)
-                degShiftT[headIdx].append(degShift)
+                    acrIdxT[headIdx].append(acr)
+                    xIdxT[headIdx].append(xIdx)
+                    yIdxT[headIdx].append(yIdx)
+                    clsT[headIdx].append(cls)
+                    xT[headIdx].append(x)
+                    yT[headIdx].append(y)
+                    wT[headIdx].append(w)
+                    hT[headIdx].append(h)
+                    degPartT[headIdx].append(degPart)
+                    degShiftT[headIdx].append(degShift)
 
             images = torch.stack(images, 0)
             objs = [torch.stack(obj, 0) for obj in objs]

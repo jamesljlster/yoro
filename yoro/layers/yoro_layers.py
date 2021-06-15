@@ -8,7 +8,6 @@ from torch.nn import functional as F
 from typing import List, Dict, Tuple
 
 from .. import ops
-from .functional import correlation_coefficient
 
 
 class YOROLayer(Module):
@@ -251,11 +250,30 @@ class YOROLayer(Module):
         device = inputs[0].device
         dtype = inputs[0].dtype
 
+        # Cache anchor
+        degAnchor = self.degAnchor[0].to(device)
+
         # Predict
         predList = self.predict(inputs)
 
         # Mask of feature map
         objMaskList = targets[0]
+
+        # Placeholder for estimation info
+        objInfo = torch.tensor([0], dtype=dtype, device=device)
+        objQuantity = 0
+
+        nobjInfo = torch.tensor([0], dtype=dtype, device=device)
+        nobjQuantity = 0
+
+        clsInfo = torch.tensor([0], dtype=dtype, device=device)
+        clsQuantity = 0
+
+        iouInfo = torch.tensor([0], dtype=dtype, device=device)
+        iouQuantity = 0
+
+        degInfo = torch.tensor([0], dtype=dtype, device=device)
+        degQuantity = 0
 
         # Compute loss for rotated bounding box
         objLoss = torch.tensor([0], dtype=dtype, device=device)
@@ -272,46 +290,91 @@ class YOROLayer(Module):
 
             # Extract tensor
             #   Predict: [conf, cls, boxes, degPart, degShift]
-            #   Index:   [   0,   1,     2,       6,        7]
+            #   Index:   [   0,   1,     2,       3,        4]
             (obj, cls, boxes, degPart, degShift) = predList[headIdx]
 
             # Accumulate loss
             if objMask.sum() > 0:
 
                 # Objectness loss
-                objLoss += self.objNorm * F.binary_cross_entropy(
-                    obj[objMask], objT[objMask].to(device), reduction='sum')
+                objSel = obj[objMask]
+                objLoss += F.binary_cross_entropy(
+                    objSel, objT[objMask].to(device), reduction='sum')
 
                 # Extract targets
                 batchT, acrIdxT, xIdxT, yIdxT, clsT, bboxT, degPartT, degShiftT = \
                     targets[1][headIdx]
 
                 # Class loss
-                clsLoss += self.clsNorm * F.cross_entropy(
-                    cls[batchT, acrIdxT, yIdxT, xIdxT], clsT.to(device), reduction='sum')
+                clsT = clsT.to(device)
+                clsSel = cls[batchT, acrIdxT, yIdxT, xIdxT]
+                clsLoss += F.cross_entropy(clsSel, clsT, reduction='sum')
 
                 # Bounding box loss
                 ciouLoss, iou = ops.ciou_loss(
                     boxes[batchT, acrIdxT, yIdxT, xIdxT, :],
                     bboxT.to(device), reduction='sum')
-                boxLoss += self.boxNorm * ciouLoss
+                boxLoss += ciouLoss
 
                 # Degree loss
-                degPartLoss += self.degPartNorm * F.cross_entropy(
-                    degPart[batchT, acrIdxT, yIdxT, xIdxT],
-                    degPartT.to(device), reduction='sum')
-                degShiftLoss += self.degShiftNorm * F.mse_loss(
-                    degShift[batchT, acrIdxT, yIdxT, xIdxT, degPartT],
-                    degShiftT.to(device), reduction='sum')
+                degPartT = degPartT.to(device)
+                degPartSel = degPart[batchT, acrIdxT, yIdxT, xIdxT]
+                degPartLoss += F.cross_entropy(
+                    degPartSel, degPartT, reduction='sum')
+
+                degShiftT = degShiftT.to(device)
+                degShiftSel = degShift[batchT, acrIdxT, yIdxT, xIdxT, degPartT]
+                degShiftLoss += F.mse_loss(
+                    degShiftSel, degShiftT, reduction='sum')
+
+                # Estimation info
+                with torch.no_grad():
+
+                    # Objectness
+                    objInfo += torch.sum(objSel)
+                    objQuantity += torch.numel(objSel)
+
+                    # Class
+                    clsHit = (torch.argmax(clsSel, dim=1) == clsT)
+                    clsInfo += torch.sum(clsHit)
+                    clsQuantity += torch.numel(clsHit)
+
+                    # Bounding box
+                    iouInfo += iou.sum()
+                    iouQuantity += iou.numel()
+
+                    # Degree
+                    degIdx = torch.argmax(degPartSel, dim=1)
+                    degPred = (degAnchor[degIdx] +
+                               degShift[batchT, acrIdxT, yIdxT, xIdxT, degIdx] *
+                               self.degValueScale)
+                    degT = (degAnchor[degPartT] +
+                            degShiftT * self.degValueScale)
+                    degInfo += torch.abs(degPred - degT).sum()
+                    degQuantity += degPred.numel()
 
             if nobjMask.sum() > 0:
 
                 # Objectness loss
+                nobjSel = obj[nobjMask]
                 nobjLoss += F.binary_cross_entropy(
-                    obj[nobjMask], objT[nobjMask].to(device), reduction='sum')
+                    nobjSel, objT[nobjMask].to(device), reduction='sum')
+
+                # Estimation info
+                with torch.no_grad():
+                    nobjInfo += nobjSel.sum()
+                    nobjQuantity += nobjSel.numel()
 
         # Total loss
-        loss = (
-            objLoss + nobjLoss + clsLoss + boxLoss + degPartLoss + degShiftLoss)
+        loss = (self.objNorm * objLoss +
+                self.nobjNorm * nobjLoss +
+                self.clsNorm * clsLoss +
+                self.boxNorm * boxLoss +
+                self.degPartNorm * degPartLoss +
+                self.degShiftNorm * degShiftLoss)
 
-        return (loss, 1), {}
+        return (loss, 1), {'obj': (objInfo, objQuantity),
+                           'nobj': (nobjInfo, nobjQuantity),
+                           'cls': (clsInfo, clsQuantity),
+                           'iou': (iouInfo, iouQuantity),
+                           'deg_err': (degInfo, degQuantity)}

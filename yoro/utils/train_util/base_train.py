@@ -98,6 +98,10 @@ class BaseTrain(object):
 
     def train(self, saveLog=True):
 
+        # Change to train mode
+        self.backbone.train()
+        self.suffix.train()
+
         while self.epoch < self.maxEpoch:
 
             runInfo = None
@@ -200,13 +204,15 @@ class BaseTrain(object):
             inputs = inputs.to(self.dev)
 
             # Forward
-            out = self.backbone(inputs)
-            loss, info = self.suffix.loss(out, targets)
+            with torch.no_grad():
 
-            if self.evaluator is not None:
-                preds = self.suffix(out)
-                preds = self.evaluator.post_process(preds)
-                predPair.append((preds, targets))
+                out = self.backbone(inputs)
+                loss, info = self.suffix.loss(out, targets)
+
+                if self.evaluator is not None:
+                    preds = self.suffix(out)
+                    preds = self.evaluator.post_process(preds)
+                    predPair.append((preds, targets))
 
             # Accumulate informations
             runInfo = info_add(runInfo, info)

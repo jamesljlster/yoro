@@ -14,13 +14,21 @@ class ACTIVATION(Module):
         super().__init__()
         self.module = _activ.__dict__[activation]()
 
-    def forward(self, x: Tensor):
-        return self.module(x)
+    def forward(self, x: List[Tensor]) -> Tensor:
+        assert len(x) == 1
+        return self.module(x[0])
 
 
-class BATCHNORM(BatchNorm2d):
+class BATCHNORM(Module):
+
     def __init__(self, input_size):
-        super().__init__(num_features=input_size[1])
+        super().__init__()
+        assert len(input_size) == 1
+        self.module = BatchNorm2d(num_features=input_size[0][1])
+
+    def forward(self, x: List[Tensor]) -> Tensor:
+        assert len(x) == 1
+        return self.module(x[0])
 
 
 class CONVOLUTIONAL(Module):
@@ -38,28 +46,36 @@ class CONVOLUTIONAL(Module):
                  ):
         super().__init__()
 
-        in_channels = input_size[1]
+        assert len(input_size) == 1
+        in_channels = input_size[0][1]
 
-        moduleList = []
-        moduleList.append(
-            Conv2d(in_channels=in_channels,
-                   out_channels=filters,
-                   kernel_size=size,
-                   stride=stride,
-                   padding=int(size / 2) if pad else padding,
-                   dilation=dilation,
-                   groups=groups,
-                   bias=(not batch_normalize)
-                   ))
+        self.conv = Conv2d(
+            in_channels=in_channels,
+            out_channels=filters,
+            kernel_size=size,
+            stride=stride,
+            padding=int(size / 2) if pad else padding,
+            dilation=dilation,
+            groups=groups,
+            bias=(not batch_normalize)
+        )
 
         if batch_normalize:
-            moduleList.append(BATCHNORM(in_channels=in_channels))
-        moduleList.append(ACTIVATION(activation=activation))
+            self.bn = BatchNorm2d(num_features=filters)
+        else:
+            self.bn = None
 
-        self.module = Sequential(*moduleList)
+        self.activ = ACTIVATION(activation=activation)
 
-    def forward(self, x: Tensor):
-        return self.module(x)
+    def forward(self, x: List[Tensor]) -> Tensor:
+        assert len(x) == 1
+
+        x = self.conv(x[0])
+        if self.bn is not None:
+            x = self.bn(x)
+        x = self.activ([x])
+
+        return x
 
 
 class SHORTCUT(Module):
@@ -68,12 +84,12 @@ class SHORTCUT(Module):
         super().__init__()
         self.activ = ACTIVATION(activation=activation)
 
-    def forward(self, x: List[Tensor]):
+    def forward(self, x: List[Tensor]) -> Tensor:
         ret = x[0]
         for i in range(1, len(x)):
             ret += x[i]
 
-        return self.activ(ret)
+        return self.activ([ret])
 
 
 class ROUTE(Module):
@@ -81,11 +97,16 @@ class ROUTE(Module):
     def __init__(self, input_size=None):
         super().__init__()
 
-    def forward(self, x: List[Tensor]):
+    def forward(self, x: List[Tensor]) -> Tensor:
         return torch.cat(x, dim=1)
 
 
-class UPSAMPLE(Upsample):
+class UPSAMPLE(Module):
 
     def __init__(self, input_size=None, stride=1):
-        super().__init__(scale_factor=stride)
+        super().__init__()
+        self.module = Upsample(scale_factor=stride)
+
+    def forward(self, x: List[Tensor]) -> Tensor:
+        assert len(x) == 1
+        return self.module(x[0])

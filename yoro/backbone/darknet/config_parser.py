@@ -64,19 +64,16 @@ def parse_config(cfg_file):
         layerIdx = layerCfg['layer_idx']
 
         # Get source layer indices
-        forceList = False
         fromInd = [-1] if layerIdx > 0 else []
 
         if layerType == 'shortcut':
-            forceList = True
-            fromInd = layerCfg['param']['from']
+            fromInd = layerCfg['param'].pop('from')
             if not isinstance(fromInd, list):
                 fromInd = [fromInd]
             fromInd = [-1] + fromInd
 
         elif layerType == 'route':
-            forceList = True
-            fromInd = layerCfg['param']['layers']
+            fromInd = layerCfg['param'].pop('layers')
             if not isinstance(fromInd, list):
                 fromInd = [fromInd]
 
@@ -86,8 +83,7 @@ def parse_config(cfg_file):
 
         # Construct linking relationship
         layerCfg['from'] = fromInd
-        layerCfg['force_list'] = forceList
         for idx in fromInd:
-            config[idx]['to'].append(idx)
+            config[idx]['to'].append(layerIdx)
 
     return config

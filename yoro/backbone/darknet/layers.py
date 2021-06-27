@@ -65,7 +65,7 @@ class CONVOLUTIONAL(Module):
         else:
             self.bn = None
 
-        self.activ = ACTIVATION(activation=activation)
+        self.activ = _activ.__dict__[activation]()
 
     def forward(self, x: List[Tensor]) -> Tensor:
         assert len(x) == 1
@@ -73,7 +73,7 @@ class CONVOLUTIONAL(Module):
         x = self.conv(x[0])
         if self.bn is not None:
             x = self.bn(x)
-        x = self.activ([x])
+        x = self.activ(x)
 
         return x
 

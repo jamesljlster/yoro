@@ -6,6 +6,7 @@ if __name__ == '__main__':
         print('%d: %s' % (elem['layer_idx'], elem['type']))
         print('  from:', elem['from'])
         print('  to:', elem['to'])
+        print('  force_list:', elem['force_list'])
         print('  param:')
         for key in elem['param']:
             print('    %s = %s' % (key, elem['param'][key]))

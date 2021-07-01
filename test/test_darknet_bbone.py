@@ -1,5 +1,5 @@
 import torch
-from yoro.backbone.darknet import YOLOv3
+from yoro.backbone import darknet
 
 
 if __name__ == '__main__':
@@ -9,15 +9,17 @@ if __name__ == '__main__':
     channels = 3
     src = torch.randn(2, channels, height, width)
 
-    module = torch.jit.script(
-        YOLOv3(width=width, height=height, channels=channels))
-    out = module(src)
-    for ten in out:
-        print(ten.size())
-    print()
+    for model in [darknet.YOLOv3_Tiny, darknet.YOLOv3]:
 
-    module = YOLOv3(width=width, height=height, channels=channels)
-    out = module(src)
-    for ten in out:
-        print(ten.size())
-    print()
+        module = model(width=width, height=height, channels=channels)
+        out = module(src)
+        for ten in out:
+            print(ten.size())
+        print()
+
+        module = torch.jit.script(
+            model(width=width, height=height, channels=channels))
+        out = module(src)
+        for ten in out:
+            print(ten.size())
+        print()

@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 from torch.nn import Module, Sequential
-from torch.nn import Conv2d, BatchNorm2d, Upsample
+from torch.nn import Conv2d, BatchNorm2d, Upsample, ZeroPad2d, MaxPool2d
 
 from typing import List
 
@@ -25,6 +25,23 @@ class BATCHNORM(Module):
         super().__init__()
         assert len(input_size) == 1
         self.module = BatchNorm2d(num_features=input_size[0][1])
+
+    def forward(self, x: List[Tensor]) -> Tensor:
+        assert len(x) == 1
+        return self.module(x[0])
+
+
+class MAXPOOL(Module):
+
+    def __init__(self, input_size=None, size=2, stride=2):
+        super().__init__()
+        assert len(input_size) == 1
+
+        maxPool = MaxPool2d(size, stride=stride, padding=int((size - 1) / 2))
+        if size == 2 and stride == 1:
+            self.module = Sequential(ZeroPad2d((0, 1, 0, 1)), maxPool)
+        else:
+            self.module = maxPool
 
     def forward(self, x: List[Tensor]) -> Tensor:
         assert len(x) == 1

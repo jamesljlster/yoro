@@ -83,3 +83,7 @@ class DarknetBBone(Module):
 
 def YOLOv3(width, height, channels):
     return DarknetBBone(config.yolov3(), (1, channels, height, width))
+
+
+def YOLOv3_Tiny(width, height, channels):
+    return DarknetBBone(config.yolov3_tiny(), (1, channels, height, width))

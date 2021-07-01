@@ -7,3 +7,7 @@ def get_config(config_file):
 
 def yolov3():
     return get_config('yolov3.cfg')
+
+
+def yolov3_tiny():
+    return get_config('yolov3-tiny.cfg')

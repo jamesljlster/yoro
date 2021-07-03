@@ -1,6 +1,8 @@
 import yaml
 import pprint
 
+import numpy as np
+
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
@@ -211,13 +213,27 @@ class YOROEvaluator(BaseEvaluator):
         self.numClasses = num_classes
         self.confTh = conf_threshold
         self.nmsTh = nms_threshold
-        self.simTh = sim_threshold
+
+        if isinstance(sim_threshold, float):
+            self.simTh = [sim_threshold]
+
+        elif isinstance(sim_threshold, list):
+            assert len(sim_threshold) == 3, \
+                'sim_threshold should be set to [start, end, step]'
+
+            simStart, simEnd, simStep = sim_threshold
+            numStep = int(round((simEnd - simStart + simStep) / simStep))
+            self.simTh = np.linspace(simStart, simEnd, num=numStep)
+
+        else:
+            raise ValueError(
+                'Invalid sim_threshold setting: ' + str(sim_threshold))
 
     def post_process(self, preds):
         preds = ops.flatten_prediction(preds)
         return ops.non_maximum_suppression(preds, self.confTh, self.nmsTh)
 
-    def evaluate(self, dts_gts):
+    def evaluate_with_sim_thres(self, dts_gts, sim_th):
 
         gtCountPerClass = [0] * self.numClasses
         apTable = [list() for _ in range(self.numClasses)]
@@ -244,7 +260,7 @@ class YOROEvaluator(BaseEvaluator):
 
                         # Get the highest score for current iteration
                         score = torch.max(scores)
-                        if score < self.simTh:
+                        if score < sim_th:
                             break
 
                         maxPos = torch.where(scores == score)
@@ -320,7 +336,12 @@ class YOROEvaluator(BaseEvaluator):
             mAP = (torch.sum(torch.tensor(classAP)) /
                    torch.sum(torch.tensor(hasInst)))
 
-        return {'mAP': mAP.item()}
+        return mAP.item()
+
+    def evaluate(self, dts_gts):
+        mapList = [
+            self.evaluate_with_sim_thres(dts_gts, simTh) for simTh in self.simTh]
+        return {'mAP': np.mean(mapList)}
 
 
 def get_rbox_tensor(rbox):

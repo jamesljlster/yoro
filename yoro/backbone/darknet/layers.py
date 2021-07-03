@@ -111,11 +111,19 @@ class SHORTCUT(Module):
 
 class ROUTE(Module):
 
-    def __init__(self, input_size=None):
+    def __init__(self, input_size, groups=1, group_id=0):
         super().__init__()
 
+        channels = input_size[0][1]
+        assert (channels % groups) == 0
+        assert group_id < groups
+
+        self.groupSize = int(channels / groups)
+        self.groupID = group_id
+
     def forward(self, x: List[Tensor]) -> Tensor:
-        return torch.cat(x, dim=1)
+        x = torch.cat(x, dim=1)
+        return torch.split(x, self.groupSize, dim=1)[self.groupID]
 
 
 class UPSAMPLE(Module):

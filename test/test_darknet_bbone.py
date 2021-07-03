@@ -12,7 +12,7 @@ if __name__ == '__main__':
     for model in [
             darknet.YOLOv4,
             darknet.YOLOv4_CSP,
-            darknet.YOLOv3_Tiny,
+            darknet.YOLOv4_Tiny,
             darknet.YOLOv3,
             darknet.YOLOv3_Tiny
     ]:

@@ -9,7 +9,7 @@ The documentation project is here:
 <https://github.com/jamesljlster/yoro-tutorial>  
 But only Chinese version is available currently.  
 If you want a English version, please open a issue for it.  
-At least let me know you are interested in my hard work :D
+At least let me know you are interested in my project :D
 
 The project is not stable yet.  
 There are no guarantes for API compatibility.
@@ -22,8 +22,7 @@ The following dependencies need to pay attention:
 
 -   PyTorch 1.8 and TorchVision 0.9
 
-    Compatibilty with other version is not guaranteed.  
-    I will keep this project up-to-date with latest PyTorch framework.
+    Compatibilty with other versions is not guaranteed.
 
 -   CUDA Toolkit & cuDNN
 
@@ -55,5 +54,6 @@ If this project helps your work, please kindly cite it :)
 -   <https://github.com/AlexeyAB/darknet>
 -   <https://github.com/pjreddie/darknet>
 -   <https://github.com/eriklindernoren/PyTorch-YOLOv3>
+-   <https://github.com/WongKinYiu/ScaledYOLOv4>
 
   [requirements.txt]: requirements.txt

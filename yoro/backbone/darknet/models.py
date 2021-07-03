@@ -87,3 +87,15 @@ def YOLOv3(width, height, channels):
 
 def YOLOv3_Tiny(width, height, channels):
     return DarknetBBone(config.yolov3_tiny(), (1, channels, height, width))
+
+
+def YOLOv4(width, height, channels):
+    return DarknetBBone(config.yolov4(), (1, channels, height, width))
+
+
+def YOLOv4_CSP(width, height, channels):
+    return DarknetBBone(config.yolov4_csp(), (1, channels, height, width))
+
+
+def YOLOv4_Tiny(width, height, channels):
+    return DarknetBBone(config.yolov4_tiny(), (1, channels, height, width))

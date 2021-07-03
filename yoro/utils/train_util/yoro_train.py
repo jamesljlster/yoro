@@ -181,12 +181,12 @@ class YOROTrain(BaseTrain):
         # Configure data loader
         self.traLoader = DataLoader(
             trainSet, shuffle=True, collate_fn=rbox_tensor_collate,
-            batch_size=cfgTParam['batch'],
+            batch_size=self.subbatch,
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'])
         self.tstLoader = DataLoader(
             validSet, shuffle=False, collate_fn=rbox_tensor_collate,
-            batch_size=cfgTParam['batch'],
+            batch_size=self.subbatch,
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'])
 

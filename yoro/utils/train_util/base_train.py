@@ -69,6 +69,18 @@ class BaseTrain(object):
         if self.trainUnits <= 0:
             self.trainUnits = min(self.estiEpoch, self.bakEpoch)
 
+        batch = cfgTParam['batch']
+        subdivision = cfgTParam.get('subdivision', 1)
+        if batch % subdivision:
+            raise ValueError(
+                'Invalid subdivision or batch size. '
+                'Batch size should be divisible by subdivision.')
+
+        self.batch = batch
+        self.subdivision = subdivision
+        self.subbatch = int(batch / subdivision)
+        self.fedCount = 0
+
         # Iterating index
         self.epoch = 0
         self.epochStart = 0
@@ -114,14 +126,18 @@ class BaseTrain(object):
                 inputs, targets = inst
                 inputs = inputs.to(self.dev)
 
-                # Zero gradients
-                self.optimizer.zero_grad()
-
-                # Training on mini-batch
+                # Accumulate gradients
                 out = self.backbone(inputs)
                 loss, info = self.suffix.loss(out, targets)
                 loss[0].backward()
-                self.optimizer.step()
+
+                self.fedCount += inputs.size(0)
+
+                # Update weight
+                if self.fedCount >= self.batch:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+                    self.fedCount = 0
 
                 # Estimating
                 runInfo = info_moving_avg(runInfo, info, self.movingFactor)
@@ -281,14 +297,14 @@ class BaseTrain(object):
 
         # Auto selection
         if path == None:
-            bakFiles = \
-                [f for f in glob(join(self.bakDir, '*.sdict')) if isfile(f)]
+            bakFiles = [f for f in glob(
+                join(self.bakDir, '*.sdict')) if isfile(f)]
             if len(bakFiles) == 0:
                 print('No backup files were found for %s' % self.name)
                 return
 
-            selBase = \
-                [int(splitext(basename(f))[0].split('_')[1]) for f in bakFiles]
+            selBase = [int(splitext(basename(f))[0].split('_')[1])
+                       for f in bakFiles]
             path = bakFiles[selBase.index(max(selBase))]
 
         # Load backup

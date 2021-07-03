@@ -57,12 +57,12 @@ class RotLayerTrain(BaseTrain):
 
         self.traLoader = DataLoader(
             trainSet, shuffle=True, collate_fn=rbox_collate_fn,
-            batch_size=cfgTParam['batch'],
+            batch_size=self.subbatch,
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'])
         self.tstLoader = DataLoader(
             validSet, shuffle=False, collate_fn=rbox_collate_fn,
-            batch_size=cfgTParam['batch'],
+            batch_size=self.subbatch,
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'])
 

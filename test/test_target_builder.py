@@ -50,33 +50,30 @@ if __name__ == '__main__':
                       transform=transform)
     for image, anno in data:
 
-        objMask, target = tgtBuilder(anno)
+        objMask, target, _ = tgtBuilder(anno)
 
         preds = list(tuple(torch.zeros_like(ten) for ten in pred)
                      for pred in predTemp)
 
-        for headIdx, (acrIdxT, xIdxT, yIdxT, clsT, xT, yT, wT, hT, degPartT, degShiftT) \
+        for headIdx, (acrIdxT, xIdxT, yIdxT, clsT, bboxT, degPartT, degShiftT) \
                 in enumerate(target):
 
-            (obj, cls, x, y, w, h, degPart, degShift) = preds[headIdx]
-            obj[0, acrIdxT, yIdxT, xIdxT] = 1.0
-            cls[0, acrIdxT, yIdxT, xIdxT, clsT] = 1.0
-            x[0, acrIdxT, yIdxT, xIdxT] = xT
-            y[0, acrIdxT, yIdxT, xIdxT] = yT
-            w[0, acrIdxT, yIdxT, xIdxT] = wT
-            h[0, acrIdxT, yIdxT, xIdxT] = hT
-            degPart[0, acrIdxT, yIdxT, xIdxT, degPartT] = 1.0
-            degShift[0, acrIdxT, yIdxT, xIdxT, degPartT] = degShiftT
+            if objMask[headIdx].sum() > 0:
+                (obj, cls, boxes, degPart, degShift) = preds[headIdx]
+                obj[0, acrIdxT, yIdxT, xIdxT] = 1.0
+                cls[0, acrIdxT, yIdxT, xIdxT, clsT] = 1.0
+                boxes[0, acrIdxT, yIdxT, xIdxT] = bboxT
+                degPart[0, acrIdxT, yIdxT, xIdxT, degPartT] = 1.0
+                degShift[0, acrIdxT, yIdxT, xIdxT, degPartT] = degShiftT
 
-            print('Head', headIdx)
-            print('  acrIdxT:', acrIdxT)
-            print('  xIdxT:', xIdxT)
-            print('  yIdxT:', yIdxT)
-            print('  wT:', wT)
-            print('  hT:', hT)
-            print('  degPartT:', degPartT)
-            print('  degShiftT:', degShiftT)
-            print()
+                print('Head', headIdx)
+                print('  acrIdxT:', acrIdxT)
+                print('  xIdxT:', xIdxT)
+                print('  yIdxT:', yIdxT)
+                print('  bboxT:', bboxT)
+                print('  degPartT:', degPartT)
+                print('  degShiftT:', degShiftT)
+                print()
         print()
 
         outputs = yoro.decode(preds)
@@ -84,17 +81,17 @@ if __name__ == '__main__':
         results = []
         confTh = 0.7
 
-        for i, (conf, label, boxes, degree) in enumerate(outputs):
+        for i, (conf, label, rboxes) in enumerate(outputs):
 
             # Convert result
             results += [
                 {
                     'label': label[n, a, h, w].item(),
-                    'x': boxes[n, a, h, w, 0].item(),
-                    'y': boxes[n, a, h, w, 1].item(),
-                    'w': boxes[n, a, h, w, 2].item(),
-                    'h': boxes[n, a, h, w, 3].item(),
-                    'degree': degree[n, a, h, w].item()
+                    'degree': rboxes[n, a, h, w, 0].item(),
+                    'x': rboxes[n, a, h, w, 1].item(),
+                    'y': rboxes[n, a, h, w, 2].item(),
+                    'w': rboxes[n, a, h, w, 3].item(),
+                    'h': rboxes[n, a, h, w, 4].item()
                 }
                 for n in range(conf.size(0))
                 for a in range(conf.size(1))

@@ -17,6 +17,8 @@ num_classes = 2
 degree_range = 30
 scale_min = 0.5
 scale_max = 1.5
+anchor_thresh = 0.3
+anchor_max_count = 2
 
 if __name__ == '__main__':
 
@@ -36,7 +38,8 @@ if __name__ == '__main__':
                 for (w, h) in zip(yoro.gridWidth, yoro.gridHeight)]
 
     tgtBuilder = TargetBuilder(
-        yoro.anchorList, objDims, gridSize, yoro.degAnchor[0].clone(), yoro.degValueScale)
+        yoro.anchorList, objDims, gridSize, yoro.degAnchor[0].clone(),
+        yoro.degValueScale, anchor_thresh, anchor_max_count)
 
     # Dataset
     transform = Compose([
@@ -49,6 +52,8 @@ if __name__ == '__main__':
                       '~/dataset/coating/coating.names',
                       transform=transform)
     for image, anno in data:
+
+        print('===================')
 
         objMask, target, _ = tgtBuilder(anno)
 
@@ -100,8 +105,8 @@ if __name__ == '__main__':
                 if conf[n, a, h, w] >= confTh
             ]
 
-        print('GT:', anno)
-        print('DT:', results)
+        print('GT (%d):' % len(anno), anno)
+        print('DT (%d):' % len(results), results)
         print()
 
         # Draw result

@@ -77,7 +77,10 @@ class YOROTrain(BaseTrain):
                 [torch.tensor([w, h])
                     for (w, h) in zip(self.suffix.gridWidth, self.suffix.gridHeight)],
                 self.suffix.degAnchor[0].clone(),
-                self.suffix.degValueScale)
+                self.suffix.degValueScale,
+                cfgTParam['anchor_thresh'],
+                cfgTParam['anchor_max_count']
+            )
         ]
 
         cfgTf = cfg['transform']

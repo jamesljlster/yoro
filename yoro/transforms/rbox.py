@@ -224,13 +224,16 @@ class RBox_PadToSquare(object):
 
 class TargetBuilder(object):
 
-    def __init__(self, anchor_list, obj_dims, grid_size, deg_anchor, deg_scale):
+    def __init__(self, anchor_list, obj_dims, grid_size, deg_anchor, deg_scale,
+                 anchor_thresh, anchor_max_count):
 
         self.anchorList = anchor_list
         self.objDims = obj_dims
         self.gridSize = grid_size
         self.degAnchor = deg_anchor
         self.degScale = deg_scale
+        self.acrThresh = anchor_thresh
+        self.acrMaxCount = anchor_max_count
 
     def __call__(self, anno_list):
 
@@ -265,16 +268,28 @@ class TargetBuilder(object):
         # Find anchor score for boxes
         ret = self.anchor_score(boxesSize)
         if ret is not None:
+
             headInd, acrInd, acrScores = ret
+            matchCount = torch.zeros(acrScores.size(0))
 
             # Anchor matching
             while True:
 
-                maxScore = torch.max(acrScores)
+                uniqueMask = (matchCount < 1).unsqueeze(-1)
+                if torch.any(uniqueMask):
+                    acrMask = uniqueMask.repeat([1, acrScores.size(1)])
+                else:
+                    acrMask = torch.logical_and(
+                        (matchCount < self.acrMaxCount).unsqueeze(-1),
+                        (acrScores >= self.acrThresh))
+
+                maskedScore = acrScores.clone()
+                maskedScore[torch.logical_not(acrMask)] = -1
+                maxScore = torch.max(maskedScore)
                 if maxScore < 0:
                     break
 
-                maxInd = torch.where(acrScores == maxScore)
+                maxInd = torch.where(maskedScore == maxScore)
                 rowInd = maxInd[0][0]
                 colInd = maxInd[1][0]
 
@@ -284,11 +299,14 @@ class TargetBuilder(object):
                 normCoord = boxesCoord[rowInd] / self.gridSize[headIdx]
                 xIdx, yIdx = torch.floor(normCoord).to(torch.long)
 
-                if objs[headIdx][acrIdx, yIdx, xIdx]:
-                    acrScores[rowInd, colInd] = -1
-                else:
+                acrScores[rowInd, colInd] = -1
+                if not objs[headIdx][acrIdx, yIdx, xIdx]:
+
+                    # Increase match count
+                    matchCount[rowInd] += 1
+
+                    # Set objectness mask
                     objs[headIdx][acrIdx, yIdx, xIdx] = True
-                    acrScores[rowInd, :] = -1
 
                     # Target encoding
                     acrIdxT[headIdx].append(acrIdx)
@@ -342,19 +360,21 @@ class TargetBuilder(object):
         interArea = torch.min(bw, aw) * torch.min(bh, ah)
         unionArea = bw * bh + aw * ah - interArea
 
-        return headIndices, anchorIndices, (interArea / (unionArea + 1e-8))
+        return headIndices, anchorIndices, (interArea / unionArea)
 
 
 class RBox_ToTensor(object):
 
-    def __init__(self, anchor_list, obj_dims, grid_size, deg_anchor, deg_scale):
+    def __init__(self, anchor_list, obj_dims, grid_size, deg_anchor, deg_scale,
+                 anchor_thresh=0.3, anchor_max_count=2):
 
         # Image transform
         self.toTensor = ToTensor()
 
         # Annotation transform
         self.tgtBuilder = TargetBuilder(
-            anchor_list, obj_dims, grid_size, deg_anchor, deg_scale)
+            anchor_list, obj_dims, grid_size, deg_anchor, deg_scale,
+            anchor_thresh, anchor_max_count)
 
     def __call__(self, sample):
 

@@ -214,8 +214,8 @@ class YOROLayer(Module):
 
             # Decoding
             label = torch.argmax(cls, dim=4)
-            labelConf = torch.softmax(cls, dim=4).gather(
-                4, label.unsqueeze(-1))
+            labelConf = \
+                torch.softmax(cls, dim=4).gather(4, label.unsqueeze(-1))
             conf = obj * labelConf.squeeze(-1)
 
             idx = torch.argmax(degPart, dim=4)

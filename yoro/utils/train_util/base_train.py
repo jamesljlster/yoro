@@ -81,6 +81,9 @@ class BaseTrain(object):
         self.subbatch = int(batch / subdivision)
         self.fedCount = 0
 
+        # Learning rate scheduler
+        self.scheduler = None
+
         # Iterating index
         self.epoch = 0
         self.epochStart = 0
@@ -135,7 +138,11 @@ class BaseTrain(object):
 
                 # Update weight
                 if self.fedCount >= self.batch:
+
                     self.optimizer.step()
+                    if self.scheduler is not None:
+                        self.scheduler.step()
+
                     self.optimizer.zero_grad()
                     self.fedCount = 0
 
@@ -279,8 +286,7 @@ class BaseTrain(object):
         bakName = 'epoch_' + str(self.epoch) + '.sdict'
         bakPath = join(self.bakDir, bakName)
 
-        print('Backup to:', bakPath)
-        torch.save({
+        bakData = {
             'epoch': self.epoch,
 
             'model_state_dict': self.model_state_dict(),
@@ -291,7 +297,13 @@ class BaseTrain(object):
 
             'trainLog': self.trainLog,
             'validLog': self.validLog
-        }, bakPath)
+        }
+
+        if self.scheduler is not None:
+            bakData['scheduler'] = self.scheduler.state_dict()
+
+        print('Backup to:', bakPath)
+        torch.save(bakData, bakPath)
 
     def restore(self, path=None):
 
@@ -319,6 +331,8 @@ class BaseTrain(object):
         self.backbone.load_state_dict(modelState['backbone'])
         self.suffix.load_state_dict(modelState['suffix'])
         self.optimizer.load_state_dict(bak['optim_state_dict'])
+        if self.scheduler is not None:
+            self.scheduler.load_state_dict(bak['scheduler'])
 
         self.bestKpi = bak['best_kpi']
         self.bestState = bak['best_state']

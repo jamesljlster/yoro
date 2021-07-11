@@ -202,6 +202,12 @@ class YOROTrain(BaseTrain):
                 {'params': self.suffix.parameters()}],
             **cfgOptim['args'])
 
+        # Configure learning rate scheduler
+        cfgSched = cfgTParam['lr_scheduler']
+        schedClass = load_object(cfgSched['name'])
+        self.scheduler = load_object(cfgSched['name'])(
+            self.optimizer, **cfgSched['args'])
+
         # Configure evaluator and KPI
         self.evaluator = YOROEvaluator(
             num_classes=trainSet.numClasses,

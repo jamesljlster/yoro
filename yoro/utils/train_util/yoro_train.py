@@ -13,6 +13,7 @@ from ...datasets import RBoxSample, load_class_names
 from ...transforms import \
     RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToAspect, RBox_ToTensor
 from ...layers import YOROLayer
+from ..data import AlignedSampler
 from ..object_loader import load_object
 
 from .base_train import BaseTrain, BaseEvaluator
@@ -72,14 +73,17 @@ class YOROTrain(BaseTrain):
         tfSuffix = [
             RBox_Resize((height, width)),
             RBox_ToTensor(
-                self.suffix.anchorList,
-                [tup[0].size()[-3:] for tup in self.suffix(out)],
-                [torch.tensor([w, h])
+                anchor_list=self.suffix.anchorList,
+                obj_dims=[tup[0].size()[-3:] for tup in self.suffix(out)],
+                grid_size=[
+                    torch.tensor([w, h])
                     for (w, h) in zip(self.suffix.gridWidth, self.suffix.gridHeight)],
-                self.suffix.degAnchor[0].clone(),
-                self.suffix.degValueScale,
-                cfgTParam['anchor_thresh'],
-                cfgTParam['anchor_max_count']
+                num_classes=self.suffix.numClasses,
+                deg_min=self.suffix.degMin,
+                deg_part_size=self.suffix.degPartSize,
+                deg_part_depth=self.suffix.degPartDepth,
+                anchor_thresh=cfgTParam['anchor_thresh'],
+                anchor_max_count=cfgTParam['anchor_max_count']
             )
         ]
 
@@ -102,8 +106,7 @@ class YOROTrain(BaseTrain):
 
         # Configure dataset
         trainSet = RBoxSample(
-            cfgData['train_dir'], cfgData['names_file'], transform=tfTrain,
-            repeats=self.trainUnits)
+            cfgData['train_dir'], cfgData['names_file'], transform=tfTrain)
         validSet = RBoxSample(
             cfgData['valid_dir'], cfgData['names_file'], transform=tfValid)
 
@@ -185,8 +188,10 @@ class YOROTrain(BaseTrain):
 
         # Configure data loader
         self.traLoader = DataLoader(
-            trainSet, shuffle=True, collate_fn=rbox_tensor_collate,
+            trainSet, shuffle=False, collate_fn=rbox_tensor_collate,
             batch_size=self.subbatch,
+            sampler=AlignedSampler(
+                trainSet, self.batch, self.trainUnits, shuffle=True),
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'])
         self.tstLoader = DataLoader(

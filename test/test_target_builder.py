@@ -38,8 +38,9 @@ if __name__ == '__main__':
                 for (w, h) in zip(yoro.gridWidth, yoro.gridHeight)]
 
     tgtBuilder = TargetBuilder(
-        yoro.anchorList, objDims, gridSize, yoro.degAnchor[0].clone(),
-        yoro.degValueScale, anchor_thresh, anchor_max_count)
+        yoro.anchorList, objDims, gridSize, yoro.numClasses,
+        yoro.degMin, yoro.degPartSize, yoro.degPartDepth,
+        anchor_thresh, anchor_max_count)
 
     # Dataset
     transform = Compose([
@@ -64,12 +65,14 @@ if __name__ == '__main__':
                 in enumerate(target):
 
             if objMask[headIdx].sum() > 0:
+
                 (obj, cls, boxes, degPart, degShift) = preds[headIdx]
                 obj[0, acrIdxT, yIdxT, xIdxT] = 1.0
-                cls[0, acrIdxT, yIdxT, xIdxT, clsT] = 1.0
+                cls[0, acrIdxT, yIdxT, xIdxT] = clsT
                 boxes[0, acrIdxT, yIdxT, xIdxT] = bboxT
-                degPart[0, acrIdxT, yIdxT, xIdxT, degPartT] = 1.0
-                degShift[0, acrIdxT, yIdxT, xIdxT, degPartT] = degShiftT
+                degPart[0, acrIdxT, yIdxT, xIdxT] = degPartT
+                degShift[0, acrIdxT, yIdxT, xIdxT,
+                         torch.argmax(degPartT, dim=1)] = degShiftT
 
                 print('Head', headIdx)
                 print('  acrIdxT:', acrIdxT)

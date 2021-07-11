@@ -74,17 +74,15 @@ class YOROLayer(Module):
             self.anchorSizeList.append(size)
 
         # Feature map specification construction: degree
+        if deg_min > deg_max:
+            deg_min, deg_max = deg_max, deg_min
+
         self.degMin = deg_min
         self.degMax = deg_max
-        self.degRange = deg_max - deg_min
-
         self.degPartSize = deg_part_size
-        self.degValueScale = float(deg_part_size) / 2.0
-        self.degAnchor: List[torch.Tensor] = [torch.arange(
-            start=deg_min, end=deg_max + deg_part_size, step=deg_part_size)]
 
-        self.degPartDepth = self.degAnchor[0].size(0)
-        self.degValueDepth = self.degAnchor[0].size(0)
+        self.degPartDepth = self.degValueDepth = \
+            int((deg_max - deg_min) / deg_part_size)
         self.degDepth = self.degPartDepth + self.degValueDepth
 
         # Feature map specification construction: bbox
@@ -148,7 +146,7 @@ class YOROLayer(Module):
 
             # Get outputs: objectness
             base = 0
-            obj = torch.sigmoid(head[..., base])
+            obj = head[..., base]
 
             # Get outputs: class
             base += self.objDepth
@@ -156,7 +154,7 @@ class YOROLayer(Module):
 
             # Get outputs: bounding box
             base += self.classDepth
-            boxes = torch.sigmoid(head[..., base:base+self.bboxDepth])
+            boxes = head[..., base:base+self.bboxDepth]
 
             # Get outputs: degree partition
             base += self.bboxDepth
@@ -187,15 +185,15 @@ class YOROLayer(Module):
         for i, (obj, cls, boxes, degPart, degShift) in enumerate(inputs):
 
             # Detach tensors
-            obj = obj.detach()
-            cls = cls.detach()
-            boxes = boxes.detach()
+            obj = torch.sigmoid(obj.detach())
+            cls = torch.sigmoid(cls.detach())
+            boxes = torch.sigmoid(boxes.detach())
             x = boxes[..., 0]
             y = boxes[..., 1]
             w = boxes[..., 2]
             h = boxes[..., 3]
-            degPart = degPart.detach()
-            degShift = degShift.detach()
+            degPart = torch.sigmoid(degPart.detach())
+            degShift = torch.sigmoid(degShift.detach())
 
             # Cache dtype, device and dimensions
             device = obj.device
@@ -204,7 +202,6 @@ class YOROLayer(Module):
 
             # Cache anchor
             anchor = self.anchorList[i].to(device)
-            degAnchor = self.degAnchor[0].to(device)
 
             # Find grid x, y
             gridY = (torch.arange(fmapHeight, dtype=dtype, device=device)
@@ -218,10 +215,9 @@ class YOROLayer(Module):
                 torch.softmax(cls, dim=4).gather(4, label.unsqueeze(-1))
             conf = obj * labelConf.squeeze(-1)
 
-            idx = torch.argmax(degPart, dim=4)
-            degree = (degAnchor[idx] +
-                      torch.gather(degShift, 4, idx.unsqueeze(-1)).squeeze(-1) *
-                      self.degValueScale)
+            idx = torch.argmax(degPart, dim=4, keepdim=True)
+            degree = self.degMin + self.degPartSize * torch.squeeze(
+                ((torch.gather(degShift, 4, idx) * 2 - 0.5) + idx), -1)
 
             rboxes = torch.zeros(
                 batch, anchorSize, fmapHeight, fmapWidth, 5, device=device)
@@ -249,9 +245,6 @@ class YOROLayer(Module):
 
         device = inputs[0].device
         dtype = inputs[0].dtype
-
-        # Cache anchor
-        degAnchor = self.degAnchor[0].to(device)
 
         # Predict
         predList = self.predict(inputs)
@@ -298,7 +291,7 @@ class YOROLayer(Module):
 
                 # Objectness loss
                 objSel = obj[objMask]
-                objLoss += F.binary_cross_entropy(
+                objLoss += F.binary_cross_entropy_with_logits(
                     objSel, objT[objMask].to(device), reduction='sum')
 
                 # Extract targets
@@ -308,34 +301,37 @@ class YOROLayer(Module):
                 # Class loss
                 clsT = clsT.to(device)
                 clsSel = cls[batchT, acrIdxT, yIdxT, xIdxT]
-                clsLoss += F.cross_entropy(clsSel, clsT, reduction='sum')
+                clsLoss += F.binary_cross_entropy_with_logits(
+                    clsSel, clsT, reduction='sum')
 
                 # Bounding box loss
                 ciouLoss, iou = ops.ciou_loss(
-                    boxes[batchT, acrIdxT, yIdxT, xIdxT, :],
+                    torch.sigmoid(boxes[batchT, acrIdxT, yIdxT, xIdxT, :]),
                     bboxT.to(device), reduction='sum')
                 boxLoss += ciouLoss
 
                 # Degree loss
                 degPartT = degPartT.to(device)
                 degPartSel = degPart[batchT, acrIdxT, yIdxT, xIdxT]
-                degPartLoss += F.cross_entropy(
+                degPartLoss += F.binary_cross_entropy_with_logits(
                     degPartSel, degPartT, reduction='sum')
 
                 degShiftT = degShiftT.to(device)
-                degShiftSel = degShift[batchT, acrIdxT, yIdxT, xIdxT, degPartT]
+                degShiftSel = degShift[
+                    batchT, acrIdxT, yIdxT, xIdxT, torch.argmax(degPartT, dim=1)]
                 degShiftLoss += F.mse_loss(
-                    degShiftSel, degShiftT, reduction='sum')
+                    torch.sigmoid(degShiftSel), degShiftT, reduction='sum')
 
                 # Estimation info
                 with torch.no_grad():
 
                     # Objectness
-                    objInfo += torch.sum(objSel)
+                    objInfo += torch.sum(torch.sigmoid(objSel))
                     objQuantity += torch.numel(objSel)
 
                     # Class
-                    clsHit = (torch.argmax(clsSel, dim=1) == clsT)
+                    clsHit = (
+                        torch.argmax(clsSel, dim=1) == torch.argmax(clsT, dim=1))
                     clsInfo += torch.sum(clsHit)
                     clsQuantity += torch.numel(clsHit)
 
@@ -345,11 +341,10 @@ class YOROLayer(Module):
 
                     # Degree
                     degIdx = torch.argmax(degPartSel, dim=1)
-                    degPred = (degAnchor[degIdx] +
-                               degShift[batchT, acrIdxT, yIdxT, xIdxT, degIdx] *
-                               self.degValueScale)
-                    degT = (degAnchor[degPartT] +
-                            degShiftT * self.degValueScale)
+                    degPred = self.degMin + self.degPartSize * (
+                        degIdx + degShift[batchT, acrIdxT, yIdxT, xIdxT, degIdx])
+                    degT = self.degMin + self.degPartSize * (
+                        torch.argmax(degPartT, dim=1) + degShiftT)
                     degInfo += torch.abs(degPred - degT).sum()
                     degQuantity += degPred.numel()
 
@@ -357,12 +352,12 @@ class YOROLayer(Module):
 
                 # Objectness loss
                 nobjSel = obj[nobjMask]
-                nobjLoss += F.binary_cross_entropy(
+                nobjLoss += F.binary_cross_entropy_with_logits(
                     nobjSel, objT[nobjMask].to(device), reduction='sum')
 
                 # Estimation info
                 with torch.no_grad():
-                    nobjInfo += nobjSel.sum()
+                    nobjInfo += torch.sum(torch.sigmoid(nobjSel))
                     nobjQuantity += nobjSel.numel()
 
         # Total loss

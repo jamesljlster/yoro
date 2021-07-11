@@ -224,14 +224,19 @@ class RBox_PadToSquare(object):
 
 class TargetBuilder(object):
 
-    def __init__(self, anchor_list, obj_dims, grid_size, deg_anchor, deg_scale,
+    def __init__(self, anchor_list, obj_dims, grid_size, num_classes,
+                 deg_min, deg_part_size, deg_part_depth,
                  anchor_thresh, anchor_max_count):
 
         self.anchorList = anchor_list
         self.objDims = obj_dims
         self.gridSize = grid_size
-        self.degAnchor = deg_anchor
-        self.degScale = deg_scale
+        self.numClasses = num_classes
+
+        self.degMin = deg_min
+        self.degPartSize = deg_part_size
+        self.degPartDepth = deg_part_depth
+
         self.acrThresh = anchor_thresh
         self.acrMaxCount = anchor_max_count
 
@@ -303,6 +308,11 @@ class TargetBuilder(object):
                 acrScores[rowInd, colInd] = -1
                 if not objs[headIdx][acrIdx, yIdx, xIdx]:
 
+                    def onehot(label, num_classes):
+                        ret = np.zeros(num_classes)
+                        ret[label] = 1.0
+                        return ret
+
                     # Increase match count
                     matchCount[rowInd] += 1
 
@@ -313,23 +323,26 @@ class TargetBuilder(object):
                     acrIdxT[headIdx].append(acrIdx)
                     xIdxT[headIdx].append(xIdx)
                     yIdxT[headIdx].append(yIdx)
-                    clsT[headIdx].append(labels[rowInd])
+                    clsT[headIdx].append(
+                        onehot(labels[rowInd], self.numClasses))
 
                     xy = (normCoord - torch.stack([xIdx, yIdx]) + 0.5) / 2.0
                     wh = torch.sqrt(
                         boxesSize[rowInd] / self.anchorList[headIdx][acrIdx]) / 2.0
                     bboxT[headIdx].append(torch.cat([xy, wh]).tolist())
 
-                    degDiff = degrees[rowInd] - self.degAnchor
-                    degPartIdx = torch.argmin(torch.abs(degDiff))
-                    degPartT[headIdx].append(degPartIdx)
-                    degShiftT[headIdx].append(
-                        degDiff[degPartIdx] / self.degScale)
+                    degNorm = (
+                        degrees[rowInd] - self.degMin) / self.degPartSize
+                    degPartIdx = int(degNorm)
+                    degDiff = degNorm - degPartIdx
+                    degPartT[headIdx].append(
+                        onehot(degPartIdx, self.degPartDepth))
+                    degShiftT[headIdx].append((degDiff + 0.5) / 2.0)
 
         targets = [
             [torch.tensor(elem, dtype=dtype) for (elem, dtype) in
-                zip(tup, [torch.long, torch.long, torch.long, torch.long,
-                          torch.float, torch.long, torch.float])]
+                zip(tup, [torch.long, torch.long, torch.long, torch.float,
+                          torch.float, torch.float, torch.float])]
             for tup in zip(acrIdxT, xIdxT, yIdxT, clsT,
                            bboxT, degPartT, degShiftT)]
 
@@ -366,7 +379,8 @@ class TargetBuilder(object):
 
 class RBox_ToTensor(object):
 
-    def __init__(self, anchor_list, obj_dims, grid_size, deg_anchor, deg_scale,
+    def __init__(self, anchor_list, obj_dims, grid_size, num_classes,
+                 deg_min, deg_part_size, deg_part_depth,
                  anchor_thresh=0.3, anchor_max_count=2):
 
         # Image transform
@@ -374,8 +388,16 @@ class RBox_ToTensor(object):
 
         # Annotation transform
         self.tgtBuilder = TargetBuilder(
-            anchor_list, obj_dims, grid_size, deg_anchor, deg_scale,
-            anchor_thresh, anchor_max_count)
+            anchor_list=anchor_list,
+            obj_dims=obj_dims,
+            grid_size=grid_size,
+            num_classes=num_classes,
+            deg_min=deg_min,
+            deg_part_size=deg_part_size,
+            deg_part_depth=deg_part_depth,
+            anchor_thresh=anchor_thresh,
+            anchor_max_count=anchor_max_count
+        )
 
     def __call__(self, sample):
 

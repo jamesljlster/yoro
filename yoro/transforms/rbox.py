@@ -279,9 +279,10 @@ class TargetBuilder(object):
                 if torch.any(uniqueMask):
                     acrMask = uniqueMask.repeat([1, acrScores.size(1)])
                 else:
-                    acrMask = torch.logical_and(
-                        (matchCount < self.acrMaxCount).unsqueeze(-1),
-                        (acrScores >= self.acrThresh))
+                    acrMask = (acrScores >= self.acrThresh)
+                    if self.acrMaxCount > 0:
+                        acrMask = torch.logical_and(
+                            acrMask, (matchCount < self.acrMaxCount).unsqueeze(-1))
 
                 maskedScore = acrScores.clone()
                 maskedScore[torch.logical_not(acrMask)] = -1

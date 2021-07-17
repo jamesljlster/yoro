@@ -49,9 +49,12 @@ if __name__ == '__main__':
     for image, target in tqdm(dataset):
 
         image = np.array(image)[..., ::-1]
-        preds = detector.detect(image, args.conf, args.nms)
-        predPair.append((preds, target))
+        preds = [rbox.to_dict()
+                 for rbox in detector.detect(image, args.conf, args.nms)]
+        predPair.append(([preds], (None, None, [target])))
+
+    mAP = evaluator.evaluate(predPair)['mAP']
 
     print()
     print('=== Evaluation Result ===')
-    print('mAP:', evaluator.evaluate(predPair)['mAP'])
+    print('mAP:', mAP)

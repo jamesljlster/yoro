@@ -111,3 +111,7 @@ class RBoxSample(Dataset):
             sample = self.transform(sample)
 
         return sample
+
+    def __iter__(self):
+        for idx in range(len(self)):
+            yield self[idx]

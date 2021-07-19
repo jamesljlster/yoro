@@ -29,11 +29,14 @@ if __name__ == '__main__':
     opt.add_argument('--conf', type=float, default=0.7,
                      help=('Confidence filtering threshold. ' +
                            '(default: %(default)s)'))
-    opt.add_argument('--nms', type=float, default=0.9,
+    opt.add_argument('--nms', type=float, default=0.6,
                      help=('NMS filtering threshold. ' +
                            '(default: %(default)s)'))
-    opt.add_argument('--sim', type=float, default=0.5,
-                     help='Rotated bounding box similarity threshold')
+    opt.add_argument('--sim', type=float, nargs=3, metavar=('start', 'end', 'step'),
+                     default=[0.5, 0.95, 0.05],
+                     help='Rotated bounding box similarity threshold. '
+                     'The argument can be either "thresh" or "start end step". '
+                     '(default: %(default)s)')
 
     args = argp.parse_args()
 

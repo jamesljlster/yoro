@@ -9,6 +9,9 @@
 
 namespace yoro_api
 {
+std::tuple<cv::Mat, int, int> pad_to_aspect(
+    const cv::Mat& src, float aspectRatio);
+
 struct RBox
 {
     /** Constructor */

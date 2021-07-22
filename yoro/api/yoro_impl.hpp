@@ -11,12 +11,6 @@
 
 namespace yoro_api
 {
-cv::Mat pad_to_aspect(
-    const cv::Mat& src,
-    float aspectRatio,
-    int* startXPtr = nullptr,
-    int* startYPtr = nullptr);
-
 class GeneralDetector
 {
    public:

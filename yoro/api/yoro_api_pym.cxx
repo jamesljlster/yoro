@@ -13,7 +13,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def("__repr__", &RBox::to_string)
         .def(
             "to_dict",
-            [](const RBox& rbox) -> py::dict {
+            [](const RBox& rbox) -> py::dict
+            {
                 py::dict ret;
                 ret["conf"] = rbox.conf;
                 ret["label"] = rbox.label;
@@ -52,4 +53,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     m.def("rbox_similarity", rbox_similarity);
     m.def("flatten_prediction", flatten_prediction);
     m.def("non_maximum_suppression", non_maximum_suppression);
+    m.def("pad_to_aspect", pad_to_aspect);
 }

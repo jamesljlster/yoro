@@ -18,8 +18,8 @@ using torch::jit::Object;
 
 namespace yoro_api
 {
-cv::Mat pad_to_aspect(
-    const cv::Mat& src, float aspectRatio, int* startXPtr, int* startYPtr)
+std::tuple<cv::Mat, int, int> pad_to_aspect(
+    const cv::Mat& src, float aspectRatio)
 {
     int width = src.cols;
     int height = src.rows;
@@ -45,11 +45,8 @@ cv::Mat pad_to_aspect(
     cv::Rect roi = cv::Rect(lPad, tPad, src.cols, src.rows);
     src.copyTo(mat(roi));
 
-    // Assign shifted image origin point
-    if (startXPtr) *startXPtr = lPad;
-    if (startYPtr) *startYPtr = tPad;
-
-    return mat;
+    // Return padded image and shifted image origin point
+    return {mat, lPad, tPad};
 }
 
 GeneralDetector::GeneralDetector(
@@ -134,8 +131,11 @@ std::vector<RBox> YORODetector::Impl::detect(
     int height = this->netHeight;
 
     // Pad to aspect ratio
-    int startX = 0, startY = 0;
-    cv::Mat mat = pad_to_aspect(image, (float)width / height, &startX, &startY);
+    std::tuple<cv::Mat, int, int> padRet =
+        pad_to_aspect(image, (float)width / height);
+    cv::Mat mat = std::get<0>(padRet);
+    int startX = std::get<1>(padRet);
+    int startY = std::get<2>(padRet);
     float scale = float(mat.cols) / float(width);
 
     // Forward, denormalize and flatten predictions
@@ -172,7 +172,7 @@ float RotationDetector::Impl::detect(const cv::Mat& image)
     int height = this->netHeight;
 
     // Pad to aspect ratio
-    cv::Mat mat = pad_to_aspect(image, (float)width / height);
+    cv::Mat mat = std::get<0>(pad_to_aspect(image, (float)width / height));
 
     // Forward
     Tensor outputs = GeneralDetector::detect(mat).toTensor();

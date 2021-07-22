@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <iostream>
 #include <opencv2/opencv.hpp>
+#include <tuple>
 #include <yoro_impl.hpp>
 
 using namespace std;
@@ -18,14 +19,15 @@ int main(int argc, char* argv[])
     const char* imgPath = argv[1];
     float aspectRatio = stof(argv[2]);
 
-    Mat result = pad_to_aspect(imread(imgPath, IMREAD_COLOR), aspectRatio);
-    imshow("Result", result);
+    std::tuple<cv::Mat, int, int> result;
+
+    result = pad_to_aspect(imread(imgPath, IMREAD_COLOR), aspectRatio);
+    imshow("Result", std::get<0>(result));
     waitKey(0);
 
-    int startX = 0;
-    int startY = 0;
-    result = pad_to_aspect(
-        imread(imgPath, IMREAD_COLOR), aspectRatio, &startX, &startY);
+    result = pad_to_aspect(imread(imgPath, IMREAD_COLOR), aspectRatio);
+    int startX = std::get<1>(result);
+    int startY = std::get<2>(result);
     printf("startX: %d, startY: %d\n", startX, startY);
 
     return 0;

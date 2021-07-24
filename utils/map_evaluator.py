@@ -51,7 +51,7 @@ if __name__ == '__main__':
     predPair = []
     for image, target in tqdm(dataset):
 
-        image = np.array(image)[..., ::-1]
+        image = np.ascontiguousarray(np.array(image)[..., ::-1])
         preds = [rbox.to_dict()
                  for rbox in detector.detect(image, args.conf, args.nms)]
         predPair.append(([preds], (None, None, [target])))

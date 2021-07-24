@@ -1,6 +1,8 @@
 #ifndef __YORO_API_PYM_HPP__
 #define __YORO_API_PYM_HPP__
 
+#include <stdexcept>
+
 #include <pybind11/numpy.h>
 #include <torch/extension.h>
 #include <opencv2/opencv.hpp>
@@ -22,6 +24,13 @@ struct type_caster<cv::Mat>
         if (!buffer)
         {
             return false;
+        }
+
+        // Check if input array is contiguous
+        if (!(buffer.flags() & npy_api::constants::NPY_ARRAY_C_CONTIGUOUS_))
+        {
+            throw std::invalid_argument(
+                "Input array should be C-style contiguous!");
         }
 
         // Find Mat type

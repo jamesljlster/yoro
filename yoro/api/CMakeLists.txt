@@ -8,7 +8,7 @@ set(MODULE_NAME ${PROJECT_NAME}_pym)
 set(PROJECT_LANGUAGE CXX)
 
 # Set library version
-set(PROJECT_VERSION 0.2.0)
+set(PROJECT_VERSION 0.3.0)
 
 # Set library public headers
 set(PROJECT_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/yoro_api.hpp")

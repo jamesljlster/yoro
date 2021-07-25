@@ -6,8 +6,8 @@ construct:
   width: 224
   height: 224
   anchor:
-    - [42.48, 45.48]
-    - [46.14, 34.85]
+    - [[42.48, 45.48], [46.14, 34.85]]
+
   deg_min: -180
   deg_max: 180
   deg_part_size: 10
@@ -16,22 +16,25 @@ construct:
     args: {model_name: resnet18}
 
 train_param:
-  max_epoch: 30000
+  max_epoch: 5000
   esti_epoch: 100
   train_units: 0
   moving_factor: 0.01
   evaluator:
     conf_threshold: 0.5
-    nms_threshold: 0.7
-    sim_threshold: 0.5
+    nms_threshold: 0.6
+    sim_threshold: [0.5, 0.95, 0.05]
 
   bak_epoch: 1000
-  batch: 16
+  batch: 64
   num_workers: 8
   pin_memory: true
   optimizer:
     name: Adam
-    args: {}
+    args: {'lr': 0.001, 'weight_decay': 0.0005}
+
+  anchor_thresh: 0.5
+  anchor_max_count: 1
 
 dataset:
   names_file: ~/dataset/coating/coating.names

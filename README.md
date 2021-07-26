@@ -55,5 +55,6 @@ If this project helps your work, please kindly cite it :)
 -   <https://github.com/pjreddie/darknet>
 -   <https://github.com/eriklindernoren/PyTorch-YOLOv3>
 -   <https://github.com/WongKinYiu/ScaledYOLOv4>
+-   <https://github.com/Zzh-tju/CIoU>
 
   [requirements.txt]: requirements.txt

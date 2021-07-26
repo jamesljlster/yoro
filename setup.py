@@ -124,7 +124,8 @@ if __name__ == '__main__':
                 'api/*.so',
                 'include/yoro_api/*',
                 'lib/cmake/yoro_api/*',
-                'lib/yoro_api/*'
+                'lib/yoro_api/*',
+                'backbones/darknet/config/*.cfg'
             ]
         },
         scripts=[

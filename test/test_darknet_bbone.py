@@ -1,5 +1,5 @@
 import torch
-from yoro.backbone import darknet
+from yoro.backbones import darknet
 
 
 if __name__ == '__main__':

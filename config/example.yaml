@@ -12,7 +12,7 @@ construct:
   deg_max: 180
   deg_part_size: 10
   backbone:
-    name: 'yoro.backbone.ResNet_FCN'
+    name: 'yoro.backbones.ResNet_FCN'
     args: {model_name: resnet18}
 
 train_param:

@@ -8,7 +8,7 @@ construct:
   deg_min: -45
   deg_max: 45
   backbone:
-    name: 'yoro.backbone.ResNet_Feature'
+    name: 'yoro.backbones.ResNet_Feature'
     args: {model_name: resnet18}
 
 train_param:

@@ -12,7 +12,7 @@ construct:
   deg_max: 180
   deg_part_size: 10
   backbone:
-    name: 'yoro.backbone.darknet.YOLOv4_Tiny'
+    name: 'yoro.backbones.darknet.YOLOv4_Tiny'
     args: {width: 416, height: 416, channels: 3}
 
 train_param:

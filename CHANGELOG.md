@@ -22,7 +22,7 @@ pretrained weights is required.
     Design anchors corresponding to backbone outputs is advised.
 
     In training progress,
-    a ground truth bounding box can be matched by several anchors by exclusive matching.
+    a ground truth bounding box can be matched by several anchors by exclusive matching.  
     Use `anchor_thresh` and `anchor_max_count` to control IoU matching threshold,
     and the maximum amount of anchors can be matched by a ground truth.
 

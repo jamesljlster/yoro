@@ -12,6 +12,8 @@ from .. import ops
 
 class YOROLayer(Module):
 
+    anchorList: List[Tensor]
+
     def __init__(self,
                  width: int, height: int, num_classes: int,
                  input_shapes: List[torch.Size], anchor: List[List[List[float]]],
@@ -40,10 +42,8 @@ class YOROLayer(Module):
 
         self.headSize = headSize
 
-        self.gridWidth: List[float] = [
-            (width / size[3]) for size in input_shapes]
-        self.gridHeight: List[float] = [
-            (height / size[2]) for size in input_shapes]
+        self.gridWidth = [(width / size[3]) for size in input_shapes]
+        self.gridHeight = [(height / size[2]) for size in input_shapes]
 
         # Loss normalizer
         self.objNorm = loss_norm.get('obj', 1.0)
@@ -59,9 +59,8 @@ class YOROLayer(Module):
         assert len(anchor) == headSize, \
             'Numbers of \"anchor\" does not match with backbone head size.'
 
-        self.anchorList: List[torch.Tensor] = [
-            torch.tensor(anc) for anc in anchor]
-        self.anchorSizeList: List[int] = []
+        self.anchorList = [torch.tensor(anc) for anc in anchor]
+        self.anchorSizeList = []
 
         for i, anc in enumerate(self.anchorList):
 
@@ -97,7 +96,7 @@ class YOROLayer(Module):
         # Feature map specification construction: final
         self.groupDepth = (
             self.objDepth + self.classDepth + self.bboxDepth + self.degDepth)
-        self.fmapDepthList: List[int] = [
+        self.fmapDepthList = [
             self.groupDepth * ancSize for ancSize in self.anchorSizeList]
 
         # Build regressor

@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     # Test conv_regression
     print('=== conv_regression ===')
-    x = yoro.head_regression(x)
+    x = yoro.head_regression(x, apply_activ=True)
     for output in x:
         print(output.size())
     print('=======================')
@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     # Test predict
     print('=== predict ===')
-    x = yoro.predict(inputs)
+    x = yoro.predict(inputs, apply_activ=True)
     for i, tup in enumerate(x):
         for output in tup:
             print(i, output.size())

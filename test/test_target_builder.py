@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     yoro = YOROLayer(width, height, num_classes, input_shapes, anchor,
                      deg_min=-90, deg_max=90, deg_part_size=10)
-    predTemp = yoro.predict(inputs)
+    predTemp = yoro.predict(inputs, apply_activ=True)
 
     objDims = [tup[0].size()[-3:] for tup in yoro(inputs)]
     gridSize = [torch.tensor([w, h])
@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     tgtBuilder = TargetBuilder(
         yoro.anchorList, objDims, gridSize, yoro.numClasses,
-        yoro.degMin, yoro.degPartSize, yoro.degPartDepth,
+        yoro.degMin, yoro.degMax, yoro.degPartSize, yoro.degPartDepth,
         anchor_thresh, anchor_max_count)
 
     # Dataset

@@ -119,14 +119,11 @@ class YOROLayer(Module):
         self.regressor = ModuleList(regressor)
 
     @torch.jit.export
-    def head_regression(self, inputs: List[Tensor], apply_activ: bool) -> List[Tensor]:
+    def head_regression(self, inputs: List[Tensor]) -> List[Tensor]:
 
         outputs: List[Tensor] = []
         for i, module in enumerate(self.regressor):
-            headOut = module(inputs[i])
-            if apply_activ:
-                headOut = torch.sigmoid(headOut)
-            outputs.append(headOut)
+            outputs.append(module(inputs[i]))
 
         return outputs
 
@@ -172,10 +169,10 @@ class YOROLayer(Module):
         return outputs
 
     @torch.jit.export
-    def predict(self, inputs: List[Tensor], apply_activ: bool) -> List[Tuple[
+    def predict(self, inputs: List[Tensor]) -> List[Tuple[
             Tensor, Tensor, Tensor, Tensor, Tensor]]:
 
-        x = self.head_regression(inputs, apply_activ)
+        x = self.head_regression(inputs)
         x = self.head_slicing(x)
 
         return x
@@ -188,15 +185,15 @@ class YOROLayer(Module):
         for i, (obj, cls, boxes, degPart, degShift) in enumerate(inputs):
 
             # Detach tensors
-            obj = obj.detach()
-            cls = cls.detach()
-            boxes = boxes.detach()
+            obj = torch.sigmoid(obj.detach())
+            cls = torch.sigmoid(cls.detach())
+            boxes = torch.sigmoid(boxes.detach())
             x = boxes[..., 0]
             y = boxes[..., 1]
             w = boxes[..., 2]
             h = boxes[..., 3]
-            degPart = degPart.detach()
-            degShift = degShift.detach()
+            degPart = torch.sigmoid(degPart.detach())
+            degShift = torch.sigmoid(degShift.detach())
 
             # Cache dtype, device and dimensions
             device = obj.device
@@ -238,7 +235,7 @@ class YOROLayer(Module):
 
     def forward(self, inputs: List[Tensor]) -> List[Tuple[Tensor, Tensor, Tensor]]:
 
-        x = self.predict(inputs, apply_activ=True)
+        x = self.predict(inputs)
         x = self.decode(x)
 
         return x
@@ -250,7 +247,7 @@ class YOROLayer(Module):
         dtype = inputs[0].dtype
 
         # Predict
-        predList = self.predict(inputs, apply_activ=False)
+        predList = self.predict(inputs)
 
         # Mask of feature map
         objMaskList = targets[0]

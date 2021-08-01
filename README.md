@@ -33,6 +33,10 @@ The following dependencies need to pay attention:
 
     C++ development package is required.
 
+## Collaboration Tools
+
+-   [ICANMark][]: Annotation tool for rotated bounding box.
+
 ## Acknowledgement
 
 Thanks ICAL Lab <http://www.ical.tw/> for providing a good workstation
@@ -58,3 +62,4 @@ If this project helps your work, please kindly cite it :)
 -   <https://github.com/Zzh-tju/CIoU>
 
   [requirements.txt]: requirements.txt
+  [ICANMark]: https://github.com/jamesljlster/ican_mark

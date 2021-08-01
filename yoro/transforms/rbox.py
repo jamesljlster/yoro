@@ -350,7 +350,7 @@ class TargetBuilder(object):
                     degDiff = degNorm - degPartIdx
                     degPartT[headIdx].append(
                         onehot(degPartIdx, self.degPartDepth))
-                    degShiftT[headIdx].append((degDiff + 0.5) / 2.0)
+                    degShiftT[headIdx].append((degDiff - 0.5) * 2.0)
 
         targets = [
             [torch.tensor(elem, dtype=dtype) for (elem, dtype) in

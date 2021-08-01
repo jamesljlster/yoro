@@ -192,8 +192,8 @@ class YOROLayer(Module):
             y = boxes[..., 1]
             w = boxes[..., 2]
             h = boxes[..., 3]
-            degPart = torch.sigmoid(degPart.detach())
-            degShift = torch.sigmoid(degShift.detach())
+            degPart = degPart.detach()
+            degShift = degShift.detach()
 
             # Cache dtype, device and dimensions
             device = obj.device
@@ -217,7 +217,7 @@ class YOROLayer(Module):
 
             idx = torch.argmax(degPart, dim=4, keepdim=True)
             degree = self.degOrig + self.degPartSize * torch.squeeze(
-                ((torch.gather(degShift, 4, idx) * 2 - 0.5) + idx), -1)
+                ((torch.gather(degShift, 4, idx) / 2.0 + 0.5) + idx), -1)
 
             rboxes = torch.zeros(
                 batch, anchorSize, fmapHeight, fmapWidth, 5, device=device)
@@ -320,7 +320,7 @@ class YOROLayer(Module):
                 degShiftSel = degShift[
                     batchT, acrIdxT, yIdxT, xIdxT, torch.argmax(degPartT, dim=1)]
                 degShiftLoss += F.mse_loss(
-                    torch.sigmoid(degShiftSel), degShiftT, reduction='sum')
+                    degShiftSel, degShiftT, reduction='sum')
 
                 # Estimation info
                 with torch.no_grad():
@@ -344,11 +344,11 @@ class YOROLayer(Module):
                     degPredShift = degShift[
                         batchT, acrIdxT, yIdxT, xIdxT, degIdx]
                     degPred = self.degOrig + self.degPartSize * (
-                        degIdx + degPredShift * 2 - 0.5)
+                        degIdx + (degPredShift / 2.0 + 0.5))
 
                     degTIdx = torch.argmax(degPartT, dim=1)
                     degT = self.degOrig + self.degPartSize * (
-                        degTIdx + degShiftT * 2 - 0.5)
+                        degTIdx + (degShiftT / 2.0 + 0.5))
 
                     degInfo += torch.abs(degPred - degT).sum()
                     degQuantity += degPred.numel()

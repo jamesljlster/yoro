@@ -10,6 +10,7 @@ from os.path import join, exists, isdir, isfile, splitext, basename
 import torch
 from torch import optim
 from torch.nn import Sequential
+from torch.nn.utils import clip_grad_norm_
 from torchvision.transforms import Compose
 
 from ...datasets import RBoxSample, rbox_collate_fn
@@ -117,6 +118,13 @@ class BaseTrain(object):
              {'params': self.suffix.parameters()}],
             **cfgOptim['args'])
 
+        # Gradient clipping
+        self.gradClipNorm = cfgTParam.get('grad_clip_norm', None)
+        if self.gradClipNorm is not None:
+            print('Gradient is clipping by max norm of', self.gradClipNorm)
+        else:
+            print('Gradient clipping is disabled')
+
         # Configure learning rate scheduler
         cfgSched = cfgTParam.get('lr_scheduler', None)
         if cfgSched is not None:
@@ -157,6 +165,12 @@ class BaseTrain(object):
 
                 # Update weight
                 if self.fedCount >= self.batch:
+
+                    if self.gradClipNorm is not None:
+                        clip_grad_norm_(
+                            self.backbone.parameters(), self.gradClipNorm)
+                        clip_grad_norm_(
+                            self.suffix.parameters(), self.gradClipNorm)
 
                     self.optimizer.step()
                     if self.scheduler is not None:

@@ -16,6 +16,7 @@ from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
     Rot_ColorJitter, Rot_RandomAffine, Rot_Resize, Rot_ToTensor
 from ..info_summarize import info_moving_avg, info_add, info_simplify, info_represent
+from ..object_loader import load_object
 
 
 def kpi_compare(old, new):
@@ -41,7 +42,7 @@ class BaseEvaluator(object):
 
 class BaseTrain(object):
 
-    def __init__(self, config_path):
+    def __init__(self, config_path, **derived_kwargs):
 
         # Load config
         cfg = yaml.load(
@@ -81,9 +82,6 @@ class BaseTrain(object):
         self.subbatch = int(batch / subdivision)
         self.fedCount = 0
 
-        # Learning rate scheduler
-        self.scheduler = None
-
         # Iterating index
         self.epoch = 0
         self.epochStart = 0
@@ -109,7 +107,28 @@ class BaseTrain(object):
         else:
             makedirs(self.bakDir)
 
-        return cfg
+        # Initialization for derived classes
+        self.derived_init(cfg, **derived_kwargs)
+
+        # Configure optimizer
+        cfgOptim = cfgTParam['optimizer']
+        self.optimizer = optim.__dict__[cfgOptim['name']](
+            [{'params': self.backbone.parameters()},
+             {'params': self.suffix.parameters()}],
+            **cfgOptim['args'])
+
+        # Configure learning rate scheduler
+        cfgSched = cfgTParam.get('lr_scheduler', None)
+        if cfgSched is not None:
+            print('Learning rate scheduler is enabled')
+            schedClass = load_object(cfgSched['name'])
+            self.scheduler = schedClass(self.optimizer, **cfgSched['args'])
+        else:
+            print('Learning rate scheduler is disabled')
+            self.scheduler = None
+
+    def derived_init(self, config, **derived_kwargs):
+        raise RuntimeError('derived_init is not implemented by derived class!')
 
     def train(self, saveLog=True):
 

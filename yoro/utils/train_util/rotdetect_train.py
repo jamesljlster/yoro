@@ -14,9 +14,7 @@ from .base_train import BaseTrain
 
 class RotLayerTrain(BaseTrain):
 
-    def __init__(self, config_path, rot_module, rot_arg_lambda):
-
-        cfg = super(RotLayerTrain, self).__init__(config_path)
+    def derived_init(self, cfg, rot_module, rot_arg_lambda):
 
         # Get child config
         cfgCons = cfg['construct']
@@ -86,13 +84,6 @@ class RotLayerTrain(BaseTrain):
 
         self.suffix = self.suffixClass(**self.suffixArgs).to(self.dev)
 
-        # Configure optimizer
-        cfgOptim = cfgTParam['optimizer']
-        self.optimizer = optim.__dict__[cfgOptim['name']](
-            [{'params': self.backbone.parameters()},
-                {'params': self.suffix.parameters()}],
-            **cfgOptim['args'])
-
         # Configure model KPI
         self.modelKpi = ['corr']
 
@@ -103,8 +94,8 @@ class RotRegressorTrain(RotLayerTrain):
 
         super(RotRegressorTrain, self).__init__(
             config_path,
-            RotRegressor,
-            lambda cfgCons: {
+            rot_module=RotRegressor,
+            rot_arg_lambda=lambda cfgCons: {
                 'deg_min': cfgCons['deg_min'],
                 'deg_max': cfgCons['deg_max']
             }
@@ -117,8 +108,8 @@ class RotClassifierTrain(RotLayerTrain):
 
         super(RotClassifierTrain, self).__init__(
             config_path,
-            RotClassifier,
-            lambda cfgCons: {
+            rot_module=RotClassifier,
+            rot_arg_lambda=lambda cfgCons: {
                 'deg_min': cfgCons['deg_min'],
                 'deg_max': cfgCons['deg_max'],
                 'deg_step': cfgCons['deg_step']
@@ -132,8 +123,8 @@ class RotAnchorTrain(RotLayerTrain):
 
         super(RotAnchorTrain, self).__init__(
             config_path,
-            RotAnchor,
-            lambda cfgCons: {
+            rot_module=RotAnchor,
+            rot_arg_lambda=lambda cfgCons: {
                 'deg_min': cfgCons['deg_min'],
                 'deg_max': cfgCons['deg_max'],
                 'deg_part_size': cfgCons['deg_part_size']

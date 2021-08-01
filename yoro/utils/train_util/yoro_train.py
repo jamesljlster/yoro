@@ -21,9 +21,7 @@ from .base_train import BaseTrain, BaseEvaluator
 
 class YOROTrain(BaseTrain):
 
-    def __init__(self, config_path):
-
-        cfg = super(YOROTrain, self).__init__(config_path)
+    def derived_init(self, cfg):
 
         # Get child config
         cfgCons = cfg['construct']
@@ -203,19 +201,6 @@ class YOROTrain(BaseTrain):
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'],
             persistent_workers=True)
-
-        # Configure optimizer
-        cfgOptim = cfgTParam['optimizer']
-        self.optimizer = optim.__dict__[cfgOptim['name']](
-            [{'params': self.backbone.parameters()},
-                {'params': self.suffix.parameters()}],
-            **cfgOptim['args'])
-
-        # Configure learning rate scheduler
-        cfgSched = cfgTParam['lr_scheduler']
-        schedClass = load_object(cfgSched['name'])
-        self.scheduler = load_object(cfgSched['name'])(
-            self.optimizer, **cfgSched['args'])
 
         # Configure evaluator and KPI
         self.evaluator = YOROEvaluator(

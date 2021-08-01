@@ -195,12 +195,14 @@ class YOROTrain(BaseTrain):
             sampler=AlignedSampler(
                 trainSet, self.batch, self.trainUnits, shuffle=True),
             num_workers=cfgTParam['num_workers'],
-            pin_memory=cfgTParam['pin_memory'])
+            pin_memory=cfgTParam['pin_memory'],
+            persistent_workers=True)
         self.tstLoader = DataLoader(
             validSet, shuffle=False, collate_fn=rbox_tensor_collate,
             batch_size=self.subbatch,
             num_workers=cfgTParam['num_workers'],
-            pin_memory=cfgTParam['pin_memory'])
+            pin_memory=cfgTParam['pin_memory'],
+            persistent_workers=True)
 
         # Configure optimizer
         cfgOptim = cfgTParam['optimizer']

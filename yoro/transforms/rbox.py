@@ -5,6 +5,7 @@ from PIL import Image, __version__ as PILLOW_VERSION
 import numpy as np
 import torch
 import math
+import warnings
 
 from typing import List, Dict, Tuple
 
@@ -225,7 +226,7 @@ class RBox_PadToSquare(object):
 class TargetBuilder(object):
 
     def __init__(self, anchor_list, obj_dims, grid_size, num_classes,
-                 deg_min, deg_part_size, deg_part_depth,
+                 deg_min, deg_max, deg_part_size, deg_orig, deg_part_depth,
                  anchor_thresh, anchor_max_count):
 
         self.anchorList = anchor_list
@@ -234,7 +235,9 @@ class TargetBuilder(object):
         self.numClasses = num_classes
 
         self.degMin = deg_min
+        self.degMax = deg_max
         self.degPartSize = deg_part_size
+        self.degOrig = deg_orig
         self.degPartDepth = deg_part_depth
 
         self.acrThresh = anchor_thresh
@@ -326,13 +329,23 @@ class TargetBuilder(object):
                     clsT[headIdx].append(
                         onehot(labels[rowInd], self.numClasses))
 
+                    # Target encoding: bounding box
                     xy = (normCoord - torch.stack([xIdx, yIdx]) + 0.5) / 2.0
                     wh = torch.sqrt(
                         boxesSize[rowInd] / self.anchorList[headIdx][acrIdx]) / 2.0
                     bboxT[headIdx].append(torch.cat([xy, wh]).tolist())
 
-                    degNorm = (
-                        degrees[rowInd] - self.degMin) / self.degPartSize
+                    # Target encoding: degree
+                    degTarget = degrees[rowInd]
+                    if degTarget < self.degMin or degTarget > self.degMax:
+                        warnings.warn(
+                            'Degree (%g) out of bounds [%g, %g]!' % (
+                                degTarget, self.degMin, self.degMax),
+                            UserWarning)
+                        degTarget = np.clip(
+                            degTarget, self.degMin, self.degMax)
+
+                    degNorm = (degTarget - self.degOrig) / self.degPartSize
                     degPartIdx = int(degNorm)
                     degDiff = degNorm - degPartIdx
                     degPartT[headIdx].append(
@@ -380,7 +393,7 @@ class TargetBuilder(object):
 class RBox_ToTensor(object):
 
     def __init__(self, anchor_list, obj_dims, grid_size, num_classes,
-                 deg_min, deg_part_size, deg_part_depth,
+                 deg_min, deg_max, deg_part_size, deg_orig, deg_part_depth,
                  anchor_thresh=0.3, anchor_max_count=2):
 
         # Image transform
@@ -393,7 +406,9 @@ class RBox_ToTensor(object):
             grid_size=grid_size,
             num_classes=num_classes,
             deg_min=deg_min,
+            deg_max=deg_max,
             deg_part_size=deg_part_size,
+            deg_orig=deg_orig,
             deg_part_depth=deg_part_depth,
             anchor_thresh=anchor_thresh,
             anchor_max_count=anchor_max_count

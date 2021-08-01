@@ -79,9 +79,10 @@ class YOROLayer(Module):
         self.degMin = deg_min
         self.degMax = deg_max
         self.degPartSize = deg_part_size
+        self.degOrig = deg_min - deg_part_size / 2.0
 
         self.degPartDepth = self.degValueDepth = \
-            int((deg_max - deg_min) / deg_part_size)
+            int(((self.degMax - self.degOrig) / self.degPartSize) + 0.5)
         self.degDepth = self.degPartDepth + self.degValueDepth
 
         # Feature map specification construction: bbox
@@ -218,7 +219,7 @@ class YOROLayer(Module):
             conf = obj * labelConf.squeeze(-1)
 
             idx = torch.argmax(degPart, dim=4, keepdim=True)
-            degree = self.degMin + self.degPartSize * torch.squeeze(
+            degree = self.degOrig + self.degPartSize * torch.squeeze(
                 ((torch.gather(degShift, 4, idx) * 2 - 0.5) + idx), -1)
 
             rboxes = torch.zeros(
@@ -345,7 +346,7 @@ class YOROLayer(Module):
                     degIdx = torch.argmax(degPartSel, dim=1)
                     degPred = self.degMin + self.degPartSize * (
                         degIdx + degShift[batchT, acrIdxT, yIdxT, xIdxT, degIdx])
-                    degT = self.degMin + self.degPartSize * (
+                    degT = self.degOrig + self.degPartSize * (
                         torch.argmax(degPartT, dim=1) + degShiftT)
                     degInfo += torch.abs(degPred - degT).sum()
                     degQuantity += degPred.numel()

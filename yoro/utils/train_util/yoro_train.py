@@ -80,7 +80,9 @@ class YOROTrain(BaseTrain):
                     for (w, h) in zip(self.suffix.gridWidth, self.suffix.gridHeight)],
                 num_classes=self.suffix.numClasses,
                 deg_min=self.suffix.degMin,
+                deg_max=self.suffix.degMax,
                 deg_part_size=self.suffix.degPartSize,
+                deg_orig=self.suffix.degOrig,
                 deg_part_depth=self.suffix.degPartDepth,
                 anchor_thresh=cfgTParam['anchor_thresh'],
                 anchor_max_count=cfgTParam['anchor_max_count']

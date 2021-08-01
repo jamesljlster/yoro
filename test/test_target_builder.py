@@ -38,9 +38,18 @@ if __name__ == '__main__':
                 for (w, h) in zip(yoro.gridWidth, yoro.gridHeight)]
 
     tgtBuilder = TargetBuilder(
-        yoro.anchorList, objDims, gridSize, yoro.numClasses,
-        yoro.degMin, yoro.degMax, yoro.degPartSize, yoro.degPartDepth,
-        anchor_thresh, anchor_max_count)
+        anchor_list=yoro.anchorList,
+        obj_dims=objDims,
+        grid_size=gridSize,
+        num_classes=yoro.numClasses,
+        deg_min=yoro.degMin,
+        deg_max=yoro.degMax,
+        deg_part_size=yoro.degPartSize,
+        deg_orig=yoro.degOrig,
+        deg_part_depth=yoro.degPartDepth,
+        anchor_thresh=anchor_thresh,
+        anchor_max_count=anchor_max_count
+    )
 
     # Dataset
     transform = Compose([

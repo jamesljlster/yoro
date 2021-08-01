@@ -341,10 +341,15 @@ class YOROLayer(Module):
 
                     # Degree
                     degIdx = torch.argmax(degPartSel, dim=1)
-                    degPred = self.degMin + self.degPartSize * (
-                        degIdx + degShift[batchT, acrIdxT, yIdxT, xIdxT, degIdx])
+                    degPredShift = degShift[
+                        batchT, acrIdxT, yIdxT, xIdxT, degIdx]
+                    degPred = self.degOrig + self.degPartSize * (
+                        degIdx + degPredShift * 2 - 0.5)
+
+                    degTIdx = torch.argmax(degPartT, dim=1)
                     degT = self.degOrig + self.degPartSize * (
-                        torch.argmax(degPartT, dim=1) + degShiftT)
+                        degTIdx + degShiftT * 2 - 0.5)
+
                     degInfo += torch.abs(degPred - degT).sum()
                     degQuantity += degPred.numel()
 

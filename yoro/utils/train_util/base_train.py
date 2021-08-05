@@ -315,6 +315,9 @@ class BaseTrain(object):
 
     def backup(self):
 
+        self.backbone.train()
+        self.suffix.train()
+
         # Make backup
         bakName = 'epoch_' + str(self.epoch) + '.sdict'
         bakPath = join(self.bakDir, bakName)
@@ -339,6 +342,9 @@ class BaseTrain(object):
         torch.save(bakData, bakPath)
 
     def restore(self, path=None):
+
+        self.backbone.train()
+        self.suffix.train()
 
         # Auto selection
         if path == None:

@@ -348,14 +348,13 @@ class TargetBuilder(object):
                     degNorm = (degTarget - self.degOrig) / self.degPartSize
                     degPartIdx = int(degNorm)
                     degDiff = degNorm - degPartIdx
-                    degPartT[headIdx].append(
-                        onehot(degPartIdx, self.degPartDepth))
+                    degPartT[headIdx].append(degPartIdx)
                     degShiftT[headIdx].append((degDiff - 0.5) * 2.0)
 
         targets = [
             [torch.tensor(elem, dtype=dtype) for (elem, dtype) in
                 zip(tup, [torch.long, torch.long, torch.long, torch.float,
-                          torch.float, torch.float, torch.float])]
+                          torch.float, torch.long, torch.float])]
             for tup in zip(acrIdxT, xIdxT, yIdxT, clsT,
                            bboxT, degPartT, degShiftT)]
 

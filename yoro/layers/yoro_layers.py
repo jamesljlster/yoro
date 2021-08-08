@@ -210,9 +210,8 @@ class YOROLayer(Module):
                      .view(1, 1, 1, fmapWidth))
 
             # Decoding
-            label = torch.argmax(cls, dim=4)
-            labelConf = \
-                torch.softmax(cls, dim=4).gather(4, label.unsqueeze(-1))
+            label = torch.argmax(cls, dim=4, keepdim=True)
+            labelConf = cls.gather(4, label)
             conf = obj * labelConf.squeeze(-1)
 
             idx = torch.argmax(degPart, dim=4, keepdim=True)
@@ -313,12 +312,11 @@ class YOROLayer(Module):
                 # Degree loss
                 degPartT = degPartT.to(device)
                 degPartSel = degPart[batchT, acrIdxT, yIdxT, xIdxT]
-                degPartLoss += F.binary_cross_entropy_with_logits(
+                degPartLoss += F.cross_entropy(
                     degPartSel, degPartT, reduction='sum')
 
                 degShiftT = degShiftT.to(device)
-                degShiftSel = degShift[
-                    batchT, acrIdxT, yIdxT, xIdxT, torch.argmax(degPartT, dim=1)]
+                degShiftSel = degShift[batchT, acrIdxT, yIdxT, xIdxT, degPartT]
                 degShiftLoss += F.mse_loss(
                     degShiftSel, degShiftT, reduction='sum')
 
@@ -330,10 +328,8 @@ class YOROLayer(Module):
                     objQuantity += torch.numel(objSel)
 
                     # Class
-                    clsHit = (
-                        torch.argmax(clsSel, dim=1) == torch.argmax(clsT, dim=1))
-                    clsInfo += torch.sum(clsHit)
-                    clsQuantity += torch.numel(clsHit)
+                    clsInfo += torch.sum(torch.sigmoid(clsSel) * clsT)
+                    clsQuantity += torch.sum(clsT > 0.5)
 
                     # Bounding box
                     iouInfo += iou.sum()
@@ -346,9 +342,8 @@ class YOROLayer(Module):
                     degPred = self.degOrig + self.degPartSize * (
                         degIdx + (degPredShift / 2.0 + 0.5))
 
-                    degTIdx = torch.argmax(degPartT, dim=1)
                     degT = self.degOrig + self.degPartSize * (
-                        degTIdx + (degShiftT / 2.0 + 0.5))
+                        degPartT + (degShiftT / 2.0 + 0.5))
 
                     degInfo += torch.abs(degPred - degT).sum()
                     degQuantity += degPred.numel()

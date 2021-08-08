@@ -20,6 +20,13 @@ scale_max = 1.5
 anchor_thresh = 0.3
 anchor_max_count = 2
 
+
+def inverse_sigmoid(x):
+    if isinstance(x, float):
+        x = torch.tensor(x)
+    return -torch.log((1.0 / x) - 1.0)
+
+
 if __name__ == '__main__':
 
     inputs = [torch.randn(2, 256, 26, 26),
@@ -76,12 +83,11 @@ if __name__ == '__main__':
             if objMask[headIdx].sum() > 0:
 
                 (obj, cls, boxes, degPart, degShift) = preds[headIdx]
-                obj[0, acrIdxT, yIdxT, xIdxT] = 1.0
-                cls[0, acrIdxT, yIdxT, xIdxT] = clsT
-                boxes[0, acrIdxT, yIdxT, xIdxT] = bboxT
-                degPart[0, acrIdxT, yIdxT, xIdxT] = degPartT
-                degShift[0, acrIdxT, yIdxT, xIdxT,
-                         torch.argmax(degPartT, dim=1)] = degShiftT
+                obj[0, acrIdxT, yIdxT, xIdxT] = inverse_sigmoid(1.0)
+                cls[0, acrIdxT, yIdxT, xIdxT] = inverse_sigmoid(clsT)
+                boxes[0, acrIdxT, yIdxT, xIdxT] = inverse_sigmoid(bboxT)
+                degPart[0, acrIdxT, yIdxT, xIdxT, degPartT] = 1.0
+                degShift[0, acrIdxT, yIdxT, xIdxT, degPartT] = degShiftT
 
                 print('Head', headIdx)
                 print('  acrIdxT:', acrIdxT)

@@ -32,15 +32,24 @@ train_param:
   pin_memory: true
   enable_amp: true
   optimizer:
-    name: 'Adam'
-    args: {'lr': 0.001, 'weight_decay': 0.0005}
+    name: 'SGD'
+    args: {'lr': 0.01, 'weight_decay': 0.0005}
+
+  grad_clip_norm: 100
+  lr_scheduler:
+    name: 'yoro.optim.lr_scheduler.steps'
+    args:
+      steps: [2500, 10000]
+      scales: [0.1, 0.1]
+      burnin_iters: 1000
 
   anchor_thresh: 0.5
   anchor_max_count: 3
   loss_normalizer:
-    obj: 1.5
+    obj: 1.0
     no_obj: 0.3
-    box: 1.3
+    cls: 0.7
+    box: 4.0
 
 dataset:
   names_file: ~/dataset/coating/coating.names

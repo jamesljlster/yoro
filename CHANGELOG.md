@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
+## \[0.4.0\] - 2021-08-09
+
+The release is for degree encoding method update, with some new features introduced.
+
+-   Learning scheduler:
+
+    Add `steps` learning rate scheduler which is documented in:  
+    <https://github.com/AlexeyAB/darknet/wiki/CFG-Parameters-in-the-%5Bnet%5D-section>
+
+    If `lr_scheduler` is not specified, it is disabled by default.
+
+    ``` yaml
+    train_param:
+      lr_scheduler:
+        name: 'yoro.optim.lr_scheduler.steps'
+        args:
+          steps: [2500, 10000]
+          scales: [0.1, 0.1]
+          burnin_iters: 1000
+    ```
+
+-   Norm gradient clipper
+
+    Add gradient clipper mechanism to prevent gradient explosion:  
+    <https://pytorch.org/docs/stable/generated/torch.nn.utils.clip_grad_norm_.html>
+
+    The `grad_clip_norm` setting in configuration file is mapping to the `max_norm`
+    parameter of `torch.nn.utils.clip_grad_norm_`.
+
+    ``` yaml
+    train_param:
+      grad_clip_norm: 100
+    ```
+
+### Added
+
+-   Add out of range warning for degress groundtruth.
+
+### Changed
+
+-   Degree anchor is replaced by spaced constant numbers.  
+    This change breaks backward compatibility of TorchScript model.
+-   The “cls” training infomation of YORO is changed to confidence instead of accuracy.
+-   Sample size of a training unit is now aligned by batch size for YORO model training.
+
+### Fixed
+
+-   Fix TorchScript annotation for YOROLayer.
+
 ## \[0.3.0\] - 2021-07-26
 
 The release is mainly for multi-head support, some backbones from Darknet,

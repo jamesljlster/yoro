@@ -1,6 +1,6 @@
 # YORO: A YOLO Variant for Rotated Object Detection
 
-YORO, extended from YOLO feature map encoding, is a algorithm performimg
+YORO, extended from YOLO feature map encoding, is an algorithm performimg
 simultaneous realtime object detection and rotation detection.
 
 <img width="650" src=".assets/demo.png" />
@@ -8,7 +8,7 @@ simultaneous realtime object detection and rotation detection.
 The documentation project is here:
 <https://github.com/jamesljlster/yoro-tutorial>  
 But only Chinese version is available currently.  
-If you want a English version, please open a issue for it.  
+If you want an English version, please open an issue for it.  
 At least let me know you are interested in my project :D
 
 The project is not stable yet.  
@@ -20,7 +20,7 @@ See [requirements.txt][] for Python package
 dependencies.  
 The following dependencies need to pay attention:
 
--   PyTorch 1.8 and TorchVision 0.9
+-   PyTorch 1.9.0 and TorchVision 0.10.0
 
     Compatibilty with other versions is not guaranteed.
 

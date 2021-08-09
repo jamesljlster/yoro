@@ -45,7 +45,7 @@ pretrained weights is required.
 
 -   Performance improvements:
 
-    Bounding box regression is now use CIoU loss instead of MSE loss.  
+    Bounding box regression is now using CIoU loss instead of MSE loss.  
     And objectness loss reduction is changed from mean to sum,
     this change reduces false positive detections.
 
@@ -65,7 +65,7 @@ pretrained weights is required.
 
 -   Evaluation on multiple similarity threshold:
 
-    sim_threshold now can be set with \[start, end, step\].  
+    `sim_threshold` now can be set with \[start, end, step\].  
     If scalar value is given, single threshold evaluation is performed.
 
     ``` yaml
@@ -126,7 +126,7 @@ The release is for PyTorch 1.8 compatibility and small improvement on training u
 
     By default, train_units will be zero if it is not presented in configuration file.
 
--   Moving average for training informations:
+-   Moving average for training information:
 
     Moving factor can be controlled by `train_param / moving_factor`.
 
@@ -145,7 +145,7 @@ The release is for PyTorch 1.8 compatibility and small improvement on training u
 
 -   Training information is now presented by reduced by moving average.
 -   mAP evaluation will now punish duplicated detection.
--   Transform functions is refactored with TorchVision 0.9.
+-   Transform functions are refactored with TorchVision 0.9.
 
 ### Fixed
 

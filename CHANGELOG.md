@@ -28,7 +28,7 @@ The release is for degree encoding method update, with some new features introdu
           burnin_iters: 1000
     ```
 
--   Norm gradient clipper
+-   Norm gradient clipper:
 
     Add gradient clipper mechanism to prevent gradient explosion:  
     <https://pytorch.org/docs/stable/generated/torch.nn.utils.clip_grad_norm_.html>

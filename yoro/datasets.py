@@ -1,6 +1,7 @@
 import yaml
 
 from glob import glob
+from tqdm import tqdm
 from os.path import join, expanduser, isfile, splitext
 from PIL import Image
 
@@ -56,7 +57,7 @@ class RBoxSample(Dataset):
 
         instList = []
         markFiles = [f for f in glob(join(image_dir, '*.mark')) if isfile(f)]
-        for markFile in markFiles:
+        for markFile in tqdm(markFiles, desc='Loading annotations into memory'):
 
             # Load annotation
             fRead = open(markFile, 'r')

@@ -32,7 +32,7 @@ train_param:
   pin_memory: true
   enable_amp: true
   optimizer:
-    name: 'SGD'
+    name: 'torch.optim.SGD'
     args: {'lr': 0.01, 'weight_decay': 0.0005}
 
   grad_clip_norm: 100

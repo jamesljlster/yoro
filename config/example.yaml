@@ -30,7 +30,7 @@ train_param:
   num_workers: 8
   pin_memory: true
   optimizer:
-    name: Adam
+    name: 'torch.optim.Adam'
     args: {'lr': 0.001, 'weight_decay': 0.0005}
 
   anchor_thresh: 0.5

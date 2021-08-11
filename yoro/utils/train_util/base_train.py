@@ -8,7 +8,6 @@ from os import makedirs
 from os.path import join, exists, isdir, isfile, splitext, basename
 
 import torch
-from torch import optim
 from torch.nn import Sequential
 from torch.nn.utils import clip_grad_norm_
 from torchvision.transforms import Compose
@@ -113,7 +112,7 @@ class BaseTrain(object):
 
         # Configure optimizer
         cfgOptim = cfgTParam['optimizer']
-        self.optimizer = optim.__dict__[cfgOptim['name']](
+        self.optimizer = load_object(cfgOptim['name'])(
             [{'params': self.backbone.parameters()},
              {'params': self.suffix.parameters()}],
             **cfgOptim['args'])

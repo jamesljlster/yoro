@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
+### Fixed
+
+-   Fix training mode error handling for utilities.
+
 ## \[0.4.0\] - 2021-08-09
 
 The release is for degree encoding method update, with some new features introduced.

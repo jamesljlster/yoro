@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     TrainClass = trainMode.get(cfg['mode'], None)
     if TrainClass is None:
-        print('Invalid training mode:', args.mode)
+        print('Invalid training mode:', cfg['mode'])
         exit()
 
     # Export model from backup

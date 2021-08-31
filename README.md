@@ -47,7 +47,7 @@ There are no guarantes for API compatibility.
 
     -   Loss
 
-        <img src="https://latex.codecogs.com/svg.image?d_{loss}=cross\_entropy(v_{part},d_{part})&plus;mse(v_{shift}[d_{part}],d_{shift})" />
+        <img src="https://latex.codecogs.com/svg.image?d_{loss}=cross\_entropy(v_{part},d_{label})&plus;mse(v_{shift}[d_{label}],d_{shift})" />
 
         -   Where
 
@@ -58,13 +58,13 @@ There are no guarantes for API compatibility.
 
     -   Decoding
 
-        <img src="https://latex.codecogs.com/svg.image?p_{part}=argmax(v_{part})" /><br>
-        <img src="https://latex.codecogs.com/svg.image?p_{shift}=v_{shift}[p_{part}]\div&space;2&plus;0.5" /><br>
-        <img src="https://latex.codecogs.com/svg.image?d_{pred}=d_{size}\times&space;(p_{part}&plus;p_{shift})" />
+        <img src="https://latex.codecogs.com/svg.image?p_{label}=argmax(v_{part})" /><br>
+        <img src="https://latex.codecogs.com/svg.image?p_{shift}=v_{shift}[p_{label}]\div&space;2&plus;0.5" /><br>
+        <img src="https://latex.codecogs.com/svg.image?d_{pred}=d_{size}\times&space;(p_{label}&plus;p_{shift})" />
 
         -   Where
 
-            <img src="https://latex.codecogs.com/svg.image?p_{part}" /> is degree partition index prediction.  
+            <img src="https://latex.codecogs.com/svg.image?p_{label}" /> is degree partition index prediction.  
             <img src="https://latex.codecogs.com/svg.image?p_{shift}" /> is degree shift prediction.  
             <img src="https://latex.codecogs.com/svg.image?d_{pred}" /> is decoded degree prediction.
 

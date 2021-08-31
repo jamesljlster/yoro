@@ -24,7 +24,7 @@ There are no guarantes for API compatibility.
     -   Constants
 
         Given: <img src="https://latex.codecogs.com/svg.image?d_{min},d_{max},d_{size}" />  
-        <img src="https://latex.codecogs.com/svg.image?d_{orig}=d_{min}-d_{size}\div 2" />
+        <img src="https://latex.codecogs.com/svg.image?d_{orig}=d_{min}-d_{size}\div&space;2" />
 
         -   Where
 
@@ -37,7 +37,7 @@ There are no guarantes for API compatibility.
 
         <img src="https://latex.codecogs.com/svg.image?d_{norm}=(d_{target}-d_{orig})\div&space;d_{size}" /><br>
         <img src="https://latex.codecogs.com/svg.image?d_{label}=\left&space;\lfloor&space;d_{norm}\right&space;\rfloor" /><br>
-        <img src="https://latex.codecogs.com/svg.image?d_{shift}=(d_{norm}-d_{label}-0.5)\times 2" />
+        <img src="https://latex.codecogs.com/svg.image?d_{shift}=(d_{norm}-d_{label}-0.5)\times&space;2" />
 
         -   Where
 
@@ -59,8 +59,8 @@ There are no guarantes for API compatibility.
     -   Decoding
 
         <img src="https://latex.codecogs.com/svg.image?p_{part}=argmax(v_{part})" /><br>
-        <img src="https://latex.codecogs.com/svg.image?p_{shift}=v_{shift}[p_{part}]\div 2&plus;0.5" /><br>
-        <img src="https://latex.codecogs.com/svg.image?d_{pred}=d_{size}\times (p_{part}&plus;p_{shift})" />
+        <img src="https://latex.codecogs.com/svg.image?p_{shift}=v_{shift}[p_{part}]\div&space;2&plus;0.5" /><br>
+        <img src="https://latex.codecogs.com/svg.image?d_{pred}=d_{size}\times&space;(p_{part}&plus;p_{shift})" />
 
         -   Where
 

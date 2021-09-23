@@ -1,34 +1,40 @@
-import torch
 import math
+
 import numpy as np
 import cv2 as cv
 
+import torch
+from torch import Tensor
 
-__all__ = ['rbox_draw']
+from . import api
 
 
-def rbox_draw(images, annos, to_tensor=False):
+def rbox_draw(images, annos, class_names=None, to_tensor=False):
 
     # Convert source
-    imType = type(images[0]).__name__
-    if imType == 'Tensor':
-        images = images.clone().permute(0, 2, 3, 1).numpy()
-    else:
-        cvtImages = []
-        for image in images:
-            cvtImages.append(np.array(image).copy())
-        images = np.float32(cvtImages) / 255.0
+    cvtImages = []
+    for image in images:
+
+        # Type convert and check
+        if isinstance(image, torch.Tensor):
+            image = image.cpu().permute(1, 2, 0).numpy()
+        if not isinstance(image, np.ndarray):
+            raise ValueError(
+                'Unsupported image data type for drawing: %s' % str(type(image)))
+
+        if np.issubdtype(image.dtype, np.floating):
+            image = (image * 255).astype(np.uint8)
+
+        cvtImages.append(image.copy())
 
     # Draw annotations
-    for i in range(images.shape[0]):
-
-        mat = cv.cvtColor(images[i], cv.COLOR_RGB2BGR)
-        anno = annos[i]
+    retImages = []
+    for (mat, anno) in zip(cvtImages, annos):
 
         # Draw rotated bounding box
         for inst in anno:
 
-            if inst.__class__.__name__ == 'RBox':
+            if isinstance(inst, api.RBox):
                 inst = inst.to_dict()
 
             # Get instance detail
@@ -51,7 +57,7 @@ def rbox_draw(images, annos, to_tensor=False):
                 [sinVal, cosVal]
             ])
 
-            # Draw rotate bounding box
+            # Calculate points and vectors for drawing
             origMat = np.float32([x, y])
 
             pts = np.zeros((4, 2), dtype=np.float32)
@@ -60,28 +66,57 @@ def rbox_draw(images, annos, to_tensor=False):
             pts[2] = np.matmul(np.float32([+w / 2, +h / 2]), rotMat) + origMat
             pts[3] = np.matmul(np.float32([-w / 2, +h / 2]), rotMat) + origMat
 
-            cv.polylines(mat, np.int32([pts]), 1,
-                         (0, 0, 0), 2, lineType=cv.LINE_AA)
+            def to_unit_vector(vec):
+                return vec / np.linalg.norm(vec)
 
-            # Draw arraw
-            arrPt = np.matmul(np.float32(
-                [0, float(-h) / 2.0]), rotMat) + origMat
-            cv.line(mat, (int(x), int(y)), (int(arrPt[0]), int(arrPt[1])),
-                    (0, 0, 0), 2, lineType=cv.LINE_AA)
+            wVec = to_unit_vector(pts[1] - pts[0])
+            hVec = to_unit_vector(pts[1] - pts[2])
+            arrowCtr = (pts[0] + pts[1]) / 2
 
-            arrPt = np.matmul(np.float32(
-                [float(w) / 2.0, 0]), rotMat) + origMat
-            cv.line(mat, (int(x), int(y)), (int(arrPt[0]), int(arrPt[1])),
-                    (0, 0, 0), 2, lineType=cv.LINE_AA)
+            # Drawing
+            def _draw_rotate_bbox(
+                    scalar, rbox_thickness, arrow_side_len, font_scalar, font_thickness):
 
-            cv.putText(mat, str(label), (int(origMat[0] - 20), int(origMat[1] + 20)),
-                       cv.FONT_HERSHEY_COMPLEX, 1, (0, 0, 0), 2, lineType=cv.LINE_AA)
+                if font_scalar is None:
+                    font_scalar = scalar
+
+                # Draw rotate bounding box
+                cv.polylines(
+                    mat, np.int32([pts]), True, scalar, rbox_thickness, lineType=cv.LINE_AA)
+
+                # Draw arrow
+                arrowPts = np.zeros((3, 2), dtype=np.float32)
+                arrowPts[0] = arrowCtr + wVec * arrow_side_len
+                arrowPts[1] = arrowCtr - wVec * arrow_side_len
+                arrowPts[2] = arrowCtr + hVec * arrow_side_len
+                cv.fillPoly(
+                    mat, np.int32([arrowPts]), scalar, lineType=cv.LINE_AA)
+
+                # Draw text
+                text = str(label)
+                if class_names is not None:
+                    text += ': %s' % class_names[label]
+                fontFace = cv.FONT_HERSHEY_SIMPLEX
+                fontScale = 1
+
+                (textWidth, textHeight), _ = cv.getTextSize(
+                    text, fontFace, fontScale, 1)
+
+                cv.putText(
+                    mat, text,
+                    (int(origMat[0] - textWidth / 2),
+                     int(origMat[1] + textHeight / 2)),
+                    fontFace, fontScale, font_scalar, font_thickness,
+                    lineType=cv.LINE_AA)
+
+            _draw_rotate_bbox((255, 255, 255), 3, 9, None, 3)
+            _draw_rotate_bbox((0, 0, 0), 1, 7, (255, 128, 128), 1)
 
         # Assign result
-        images[i] = cv.cvtColor(mat, cv.COLOR_BGR2RGB)
+        retImages.append(mat)
 
     # Convert to tensor format
     if to_tensor:
-        images = torch.tensor(images).permute(0, 3, 1, 2)
+        retImages = torch.tensor(retImages).permute(0, 3, 1, 2)
 
-    return images
+    return retImages

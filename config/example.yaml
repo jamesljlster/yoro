@@ -16,8 +16,13 @@ construct:
     args: {model_name: resnet18}
 
 train_param:
-  max_epoch: 5000
-  esti_epoch: 100
+
+  batch: 64
+
+  max_iter: 30000
+  esti_iter: 500
+  bak_iter: 500
+
   train_units: 0
   moving_factor: 0.01
   evaluator:
@@ -25,8 +30,6 @@ train_param:
     nms_threshold: 0.6
     sim_threshold: [0.5, 0.95, 0.05]
 
-  bak_epoch: 1000
-  batch: 64
   num_workers: 8
   pin_memory: true
   optimizer:

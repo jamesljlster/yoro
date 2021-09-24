@@ -1,1 +1,1 @@
-from .sampler import AlignedSampler
+from .sampler import AlignedSampler, SequentialSampler

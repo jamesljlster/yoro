@@ -7,6 +7,7 @@ from ...datasets import RBoxSample, rbox_collate_fn
 from ...transforms import \
     Rot_ColorJitter, Rot_RandomAffine, Rot_Resize, Rot_ToTensor, Rot_PadToAspect
 from ...layers import RotRegressor, RotClassifier, RotAnchor
+from ..data import SequentialSampler
 from ..object_loader import load_object
 
 from .base_train import BaseTrain
@@ -48,21 +49,24 @@ class RotLayerTrain(BaseTrain):
         # Configure dataset
         cfgData = cfg['dataset']
         trainSet = RBoxSample(
-            cfgData['train_dir'], cfgData['names_file'], transform=tfTrain,
-            repeats=self.trainUnits)
+            cfgData['train_dir'], cfgData['names_file'], transform=tfTrain)
         validSet = RBoxSample(
             cfgData['valid_dir'], cfgData['names_file'], transform=tfValid)
 
         self.traLoader = DataLoader(
-            trainSet, shuffle=True, collate_fn=rbox_collate_fn,
+            trainSet, shuffle=False, collate_fn=rbox_collate_fn,
             batch_size=self.subbatch,
+            sampler=SequentialSampler(
+                trainSet, self.batch * self.trainUnits, shuffle=True),
             num_workers=cfgTParam['num_workers'],
-            pin_memory=cfgTParam['pin_memory'])
+            pin_memory=cfgTParam['pin_memory'],
+            persistent_workers=cfgTParam.get('persistent_workers', True))
         self.tstLoader = DataLoader(
             validSet, shuffle=False, collate_fn=rbox_collate_fn,
             batch_size=self.subbatch,
             num_workers=cfgTParam['num_workers'],
-            pin_memory=cfgTParam['pin_memory'])
+            pin_memory=cfgTParam['pin_memory'],
+            persistent_workers=cfgTParam.get('persistent_workers', True))
 
         # Configure backbone
         cfgBBone = cfgCons['backbone']

@@ -9,11 +9,6 @@ import torch
 from torch.utils.data import Dataset
 
 
-__all__ = [
-    'rbox_collate_fn', 'RBoxSample'
-]
-
-
 def rbox_collate_fn(samples):
 
     srcType = type(samples[0][0]).__name__
@@ -44,12 +39,7 @@ def load_class_names(names_file):
 
 class RBoxSample(Dataset):
 
-    def __init__(self, image_dir, names_file=None, transform=None, repeats=1):
-
-        # Check argument
-        if not isinstance(repeats, int):
-            repeats = int(round(repeats))
-        assert repeats > 0, 'Parameter \"repeats\" should greater than 1'
+    def __init__(self, image_dir, names_file=None, transform=None):
 
         # Load dataset
         if image_dir[0] == '~':
@@ -88,19 +78,13 @@ class RBoxSample(Dataset):
             self.classNames = [str(label) for label in range(self.numClasses)]
 
         # Assignment
-        self.repeats = repeats
         self.instList = instList
         self.transform = transform
 
-    def actual_length(self):
+    def __len__(self):
         return len(self.instList)
 
-    def __len__(self):
-        return self.actual_length() * self.repeats
-
     def __getitem__(self, idx):
-
-        idx = idx % self.actual_length()
 
         # Load instance
         image = Image.open(self.instList[idx]['file'])

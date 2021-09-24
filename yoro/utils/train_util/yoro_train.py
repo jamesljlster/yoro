@@ -13,7 +13,7 @@ from ...datasets import RBoxSample, load_class_names
 from ...transforms import \
     RBox_ColorJitter, RBox_RandomAffine, RBox_Resize, RBox_PadToAspect, RBox_ToTensor
 from ...layers import YOROLayer
-from ..data import AlignedSampler
+from ..data import SequentialSampler
 from ..object_loader import load_object
 
 from .base_train import BaseTrain, BaseEvaluator
@@ -190,17 +190,17 @@ class YOROTrain(BaseTrain):
         self.traLoader = DataLoader(
             trainSet, shuffle=False, collate_fn=rbox_tensor_collate,
             batch_size=self.subbatch,
-            sampler=AlignedSampler(
-                trainSet, self.batch, self.trainUnits, shuffle=True),
+            sampler=SequentialSampler(
+                trainSet, self.batch * self.trainUnits, shuffle=True),
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'],
-            persistent_workers=True)
+            persistent_workers=cfgTParam.get('persistent_workers', True))
         self.tstLoader = DataLoader(
             validSet, shuffle=False, collate_fn=rbox_tensor_collate,
             batch_size=self.subbatch,
             num_workers=cfgTParam['num_workers'],
             pin_memory=cfgTParam['pin_memory'],
-            persistent_workers=True)
+            persistent_workers=cfgTParam.get('persistent_workers', True))
 
         # Configure evaluator and KPI
         self.evaluator = YOROEvaluator(

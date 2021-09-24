@@ -12,10 +12,13 @@ construct:
     args: {model_name: resnet18}
 
 train_param:
-  max_epoch: 500
-  esti_epoch: 10
-  bak_epoch: 100
+
   batch: 64
+
+  max_iter: 100000
+  esti_iter: 1000
+  bak_iter: 1000
+
   num_workers: 8
   pin_memory: true
   optimizer:

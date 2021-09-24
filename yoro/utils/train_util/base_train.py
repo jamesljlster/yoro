@@ -61,14 +61,14 @@ class BaseTrain(object):
         cfgTParam = cfg['train_param']
 
         # Training setting
-        self.maxEpoch = cfgTParam['max_epoch']
-        self.estiEpoch = cfgTParam['esti_epoch']
-        self.bakEpoch = cfgTParam['bak_epoch']
+        self.maxIter = cfgTParam['max_iter']
+        self.estiIter = cfgTParam['esti_iter']
+        self.bakIter = cfgTParam['bak_iter']
 
         self.movingFactor = cfgTParam.get('moving_factor', 0.01)
         self.trainUnits = cfgTParam.get('train_units', 0)
         if self.trainUnits <= 0:
-            self.trainUnits = min(self.estiEpoch, self.bakEpoch)
+            self.trainUnits = min(self.estiIter, self.bakIter)
 
         batch = cfgTParam['batch']
         subdivision = cfgTParam.get('subdivision', 1)
@@ -83,8 +83,8 @@ class BaseTrain(object):
         self.fedCount = 0
 
         # Iterating index
-        self.epoch = 0
-        self.epochStart = 0
+        self.iter = 0
+        self.iterStart = 0
 
         # Evaluator callback
         self.evaluator = None
@@ -143,7 +143,7 @@ class BaseTrain(object):
         self.backbone.train()
         self.suffix.train()
 
-        while self.epoch < self.maxEpoch:
+        while self.iter < self.maxIter:
 
             runInfo = None
             runLoss = None
@@ -184,10 +184,10 @@ class BaseTrain(object):
 
                 # Show training message
                 if self.trainUnits > 1:
-                    desc = 'Epoch [%d-%d]/%d' % (
-                        self.epoch + 1, self.epoch + self.trainUnits, self.maxEpoch)
+                    desc = 'Iter [%d-%d]/%d' % (
+                        self.iter + 1, self.iter + self.trainUnits, self.maxIter)
                 else:
-                    desc = 'Epoch %d/%d' % (self.epoch + 1, self.maxEpoch)
+                    desc = 'Iter %d/%d' % (self.iter + 1, self.maxIter)
 
                 loop.set_description(desc)
                 loop.set_postfix_str('loss: %s, %s' % (
@@ -199,16 +199,16 @@ class BaseTrain(object):
             lossInfo = info_simplify(runLoss)
             estiInfo = info_simplify(runInfo)
             if saveLog:
-                self.trainLog[self.epoch + 1] = {
+                self.trainLog[self.iter + 1] = {
                     'loss': lossInfo,
                     'info': estiInfo
                 }
 
             # Increase iterating index
-            self.epoch = self.epoch + self.trainUnits
+            self.iter = self.iter + self.trainUnits
 
             # Validating
-            if (self.epoch - self.epochStart) % self.estiEpoch == 0:
+            if (self.iter - self.iterStart) % self.estiIter == 0:
                 validLoss, validEsti = self.valid(saveLog=saveLog)
 
                 # Compare kpi and save best weight
@@ -229,7 +229,7 @@ class BaseTrain(object):
                     print()
 
             # Backup
-            if (self.epoch - self.epochStart) % self.bakEpoch == 0:
+            if (self.iter - self.iterStart) % self.bakIter == 0:
                 self.backup()
 
     def valid(self, saveLog=False):
@@ -240,7 +240,7 @@ class BaseTrain(object):
 
         # Show message header
         print()
-        print('=== Validation on Epoch %d ===' % self.epoch)
+        print('=== Validation on Iter %d ===' % self.iter)
 
         # Estimating
         runInfo = None
@@ -290,7 +290,7 @@ class BaseTrain(object):
 
         # Logging
         if saveLog:
-            self.validLog[self.epoch] = {
+            self.validLog[self.iter] = {
                 'loss': lossInfo,
                 'info': estiInfo
             }
@@ -318,11 +318,11 @@ class BaseTrain(object):
         self.suffix.train()
 
         # Make backup
-        bakName = 'epoch_' + str(self.epoch) + '.sdict'
+        bakName = 'iter_' + str(self.iter) + '.sdict'
         bakPath = join(self.bakDir, bakName)
 
         bakData = {
-            'epoch': self.epoch,
+            'iter': self.iter,
 
             'model_state_dict': self.model_state_dict(),
             'optim_state_dict': self.optimizer.state_dict(),
@@ -362,8 +362,8 @@ class BaseTrain(object):
         bak = torch.load(path, map_location=self.dev)
 
         # Load parameters
-        self.epoch = bak['epoch']
-        self.epochStart = self.epoch
+        self.iter = bak['iter']
+        self.iterStart = self.iter
 
         modelState = bak['model_state_dict']
         self.backbone.load_state_dict(modelState['backbone'])
@@ -382,7 +382,7 @@ class BaseTrain(object):
 
         # Auto selection
         if path == None:
-            path = '_'.join([self.name, 'epoch', str(self.epoch)]) + '.zip'
+            path = '_'.join([self.name, 'iter', str(self.iter)]) + '.zip'
 
         # Compose sequential model for torchscript
         model = torch.jit.script(Sequential(OrderedDict([

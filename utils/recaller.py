@@ -97,7 +97,7 @@ if __name__ == '__main__':
     opt.add_argument('--conf', type=float, default=0.7,
                      help=('Confidence filtering threshold. ' +
                            '(default: %(default)s, for YORO only)'))
-    opt.add_argument('--nms', type=float, default=0.9,
+    opt.add_argument('--nms', type=float, default=0.6,
                      help=('NMS filtering threshold. ' +
                            '(default: %(default)s, for YORO only)'))
 

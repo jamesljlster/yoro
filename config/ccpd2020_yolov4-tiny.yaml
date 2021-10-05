@@ -1,15 +1,15 @@
 mode: yoro
 
-name: coating_yolov4_tiny
+name: ccpd2020_yolov4_tiny
 device: auto
 construct:
   width: 416
   height: 416
   anchor:
-    - [[78.89, 78.94], [91.68, 64.73]]
-    - [[55.22, 55.26], [64.18, 45.31]]
-  deg_min: -180
-  deg_max: 180
+    - [[118.12, 35.24], [98.43, 29.36]]
+    - [[78.74, 23.49], [59.05, 17.62]]
+  deg_min: -45
+  deg_max: 45
   deg_part_size: 10
   backbone:
     name: 'yoro.backbones.darknet.YOLOv4_Tiny'
@@ -20,9 +20,9 @@ train_param:
   batch: 64
   subdivision: 2
 
-  max_iter: 50000
-  esti_iter: 500
-  bak_iter: 500
+  max_iter: 250000
+  esti_iter: 1000
+  bak_iter: 1000
 
   train_units: 0
   moving_factor: 0.01
@@ -31,7 +31,7 @@ train_param:
     nms_threshold: 0.6
     sim_threshold: [0.5, 0.95, 0.05]
 
-  num_workers: 8
+  num_workers: 16
   pin_memory: true
   optimizer:
     name: 'torch.optim.SGD'
@@ -41,9 +41,9 @@ train_param:
   lr_scheduler:
     name: 'yoro.optim.lr_scheduler.steps'
     args:
-      steps: [2500, 10000]
+      steps: [45000, 135000]
       scales: [0.1, 0.1]
-      burnin_iters: 1000
+      burnin_iters: 4500
 
   anchor_thresh: 0.5
   anchor_max_count: 3
@@ -54,9 +54,9 @@ train_param:
     box: 4.0
 
 dataset:
-  names_file: ~/dataset/coating/coating.names
-  train_dir: ~/dataset/coating/train
-  valid_dir: ~/dataset/coating/valid
+  names_file: ~/dataset/CCPD2020/ccpd_green/ccpd.names
+  train_dir: ~/dataset/CCPD2020/ccpd_green/train
+  valid_dir: ~/dataset/CCPD2020/ccpd_green/val
 
 transform:
   brightness: 0.3

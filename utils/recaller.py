@@ -1,7 +1,7 @@
 #!@Python_EXECUTABLE@
 
 import argparse
-
+import time
 import torch
 import math
 
@@ -124,12 +124,24 @@ if __name__ == '__main__':
 
             print('Loading video from:', src)
             cap = cv.VideoCapture(src)
+
+            startTime = time.time()
+            counter = 0
             while True:
+
                 ret, img = cap.read()
                 if not ret:
                     break
 
                 img = get_detection_image(detector, args, img)
+                counter += 1
+
+                curTime = time.time()
+                if curTime - startTime > 3:
+                    print('FPS:', counter / (curTime - startTime))
+                    startTime = curTime
+                    counter = 0
+
                 cv.imshow('Press ESC to stop', img)
                 if cv.waitKey(1) == 27:
                     cap.release()

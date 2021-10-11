@@ -7,9 +7,49 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
+## \[0.5.0\] - 2021-10-11
+
+The release is mainly for training iterating changing from epoch based to batch based:
+
+-   Deconfuse parameters designing for learning scheduler and training progress.
+-   Shorten time cost to make a backup/checkpoint/evaluation for large dataset training.
+
+``` yaml
+train_param:
+  max_iter: 30000
+  esti_iter: 500
+  bak_iter: 500
+```
+
+And the optimizer choosing is changed from name only to full module path,
+which can deal with loading PyTorch compatible 3rd party or custom optimizer.
+
+``` yaml
+train_param:
+  optimizer:
+    name: 'torch.optim.SGD'
+    args: {'lr': 0.01, 'weight_decay': 0.0005}
+```
+
+### Added
+
+-   Add annotation loading progress for dataset loader.
+-   Add sequential sampler to replace the functionality of `repeats` for dataset loader.
+-   Add FPS estimation when performing real-time inference on video device with recaller.
+
+### Changed
+
+-   The training progress is now based on batch instead of epoch.
+-   Optimizer is now choosing by full module path.
+-   The drawing style of detection visualization have been updated.
+
 ### Fixed
 
 -   Fix training mode error handling for utilities.
+
+### Removed
+
+-   The `repeats` functionality for dataset loader have been removed.
 
 ## \[0.4.0\] - 2021-08-09
 

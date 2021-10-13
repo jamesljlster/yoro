@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
+### Fixed
+
+-   Fix confidence weighted summation in nms.
+
 ## \[0.5.0\] - 2021-10-11
 
 The release is mainly for training iterating changing from epoch based to batch based:

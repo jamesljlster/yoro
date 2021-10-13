@@ -126,7 +126,7 @@ vector<vector<RBox>> non_maximum_suppression(
             Tensor weight = conf.index({candMask});
             Tensor resultRBox =
                 matmul(weight, rbox.index({candMask})) / weight.sum();
-            Tensor resultConf = matmul(weight, weight);
+            Tensor resultConf = matmul(weight, weight) / weight.sum();
 
             // Clear merged RBox
             conf.index_put_({candMask}, -1.0);

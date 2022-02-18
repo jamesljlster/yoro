@@ -7,9 +7,10 @@ if(" ${CMAKE_SOURCE_DIR}" STREQUAL " ${CMAKE_BINARY_DIR}")
         )
 endif()
 
-# Set variables
+# Set project information
 set(PROJECT_NAME YORO)
 set(PROJECT_LANGUAGE CXX)
+set(PROJECT_VERSION 0.5.0)
 
 # Environment variables
 file(RELATIVE_PATH REL_INSTALL_PREFIX
@@ -52,7 +53,7 @@ if(${BUILD_TEST})
 endif()
 
 # Set project
-project(${PROJECT_NAME} ${PROJECT_LANGUAGE})
+project(${PROJECT_NAME} VERSION ${PROJECT_VERSION} LANGUAGES ${PROJECT_LANGUAGE})
 
 # Include cmake files
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/deps.cmake")

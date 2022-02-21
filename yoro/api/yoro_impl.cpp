@@ -34,6 +34,13 @@ Tensor from_image(const cv::Mat& image)
         image.channels());
 }
 
+cv::Mat to_image(const Tensor& source)
+{
+    torch::Tensor image = source.permute({0, 2, 3, 1}).squeeze(0).contiguous();
+    return cv::Mat(image.size(0), image.size(1), CV_8UC3, image.data_ptr())
+        .clone();
+}
+
 GeneralDetector::GeneralDetector(
     const char* modelPath, const DeviceType& devType)
 {

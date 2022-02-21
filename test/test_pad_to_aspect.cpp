@@ -11,13 +11,6 @@ using namespace std;
 using namespace cv;
 using namespace yoro_api;
 
-Mat to_image(const torch::Tensor& source)
-{
-    torch::Tensor inputs = source.permute({0, 2, 3, 1}).squeeze(0).contiguous();
-    return Mat(inputs.size(0), inputs.size(1), CV_8UC3, inputs.data_ptr())
-        .clone();
-}
-
 int main(int argc, char* argv[])
 {
     if (argc < 3)

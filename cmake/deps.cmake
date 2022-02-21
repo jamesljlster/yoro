@@ -7,7 +7,7 @@ if(NOT DEFINED OpenCV_FOUND)
     option(WITH_OPENCV "Enable OpenCV Mat type support for inference API" ${OpenCV_FOUND})
 endif()
 
-if(${WITH_OPENCV})
+if(${WITH_OPENCV} OR ${BUILD_TEST})
     find_package(OpenCV REQUIRED)
     if(OpenCV_VERSION VERSION_LESS "4.0.0")
         message(FATAL_ERROR "Error: OpenCV 4.0.0+ is required")

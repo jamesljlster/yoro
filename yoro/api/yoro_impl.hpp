@@ -14,6 +14,7 @@ namespace yoro_api
 torch::Tensor from_image(
     const uint8_t* image, int width, int height, int channels);
 torch::Tensor from_image(const cv::Mat& image);
+cv::Mat to_image(const torch::Tensor& source);
 
 class GeneralDetector
 {

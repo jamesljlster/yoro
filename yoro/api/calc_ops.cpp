@@ -1,3 +1,8 @@
+#include <algorithm>
+#include <exception>
+#include <initializer_list>
+#include <stdexcept>
+
 #include "calc_ops.hpp"
 
 #define PROC_DTYPE torch::kFloat
@@ -5,11 +10,94 @@
 using namespace torch;
 using namespace torch::indexing;
 
+using std::invalid_argument;
 using std::tuple;
 using std::vector;
 
 namespace yoro_api
 {
+template <typename T>
+bool is_in(const T& value, std::initializer_list<T> list)
+{
+    return (std::find(std::begin(list), std::end(list), value)) !=
+           std::end(list);
+}
+
+Tensor resize(const Tensor& source, const vector<long>& outputSize)
+{
+    Tensor data = source;
+    ScalarType dtype = source.scalar_type();
+
+    // Unsqueeze and cast
+    bool needSqueeze = false;
+    bool needCast = !is_in<ScalarType>(dtype, {kFloat, kDouble});
+
+    if (data.dim() < 4)
+    {
+        needSqueeze = true;
+        data = data.unsqueeze(0);
+    }
+
+    if (needCast)
+    {
+        data = data.to(PROC_DTYPE);
+    }
+
+    // Resize with bilinear interpolation
+    data = upsample_bilinear2d(data, outputSize, true);
+
+    // Squeeze an cast back
+    if (needSqueeze)
+    {
+        data = data.squeeze(0);
+    }
+
+    if (needCast)
+    {
+        if (is_in(dtype, {kUInt8, kInt8, kInt16, kInt32, kInt64}))
+        {
+            data = round(data);
+        }
+        data = data.to(dtype);
+    }
+
+    return data;
+}
+
+tuple<Tensor, vector<long>> pad_to_aspect(
+    const Tensor& source, float aspectRatio)
+{
+    // Get source resolution
+    if (source.dim() < 2)
+    {
+        throw invalid_argument(
+            "Input source should contain at least 2 dimensions.");
+    }
+
+    int width = source.size(-1);
+    int height = source.size(-2);
+
+    // Find target size
+    Tensor imSize = tensor({width, height}, kLong);
+    Tensor cand1 = tensor({width, (int)std::round(width / aspectRatio)});
+    Tensor cand2 = tensor({(int)std::round(height * aspectRatio), height});
+    Tensor tarSize = any((cand1 - imSize) < 0).item<bool>() ? cand2 : cand1;
+
+    // Find padding parameters
+    Tensor sizeDiff = tarSize - imSize;
+    Tensor ltPad = bitwise_right_shift(sizeDiff, 1);
+    Tensor rbPad = sizeDiff - ltPad;
+
+    Tensor pad = stack({ltPad, rbPad}).t().flatten();
+    std::vector<long> padArray(
+        pad.data_ptr<long>(), pad.data_ptr<long>() + pad.numel());
+
+    // Padding tensor
+    Tensor output = constant_pad_nd(source, padArray, 0);
+
+    return {output, padArray};
+}
+
 Tensor bbox_to_corners(const Tensor& bbox)
 {
     Tensor corners = torch::zeros_like(bbox);

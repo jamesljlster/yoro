@@ -1,13 +1,21 @@
 # Project Dependences Configuration
 
 # Find OpenCV
-set(OpenCV_STATIC OFF CACHE BOOL "Using OpenCV static linking library")
-find_package(OpenCV REQUIRED)
-if(OpenCV_VERSION VERSION_LESS "4.0.0")
-    message(FATAL_ERROR "Error: OpenCV 4.0.0+ is required")
+option(OpenCV_SHARED "Use OpenCV as shared library" ON)
+if(NOT DEFINED OpenCV_FOUND)
+    find_package(OpenCV QUIET)
+    option(WITH_OPENCV "Enable OpenCV Mat type support for inference API" ${OpenCV_FOUND})
 endif()
 
-include_directories(${OpenCV_INCLUDE_DIRS})
+if(${WITH_OPENCV})
+    find_package(OpenCV REQUIRED)
+    if(OpenCV_VERSION VERSION_LESS "4.0.0")
+        message(FATAL_ERROR "Error: OpenCV 4.0.0+ is required")
+    endif()
+
+    include_directories(${OpenCV_INCLUDE_DIRS})
+    add_compile_definitions(WITH_OPENCV)
+endif()
 
 # Find PyTorch
 find_package(Torch REQUIRED)

@@ -11,6 +11,10 @@
 
 namespace yoro_api
 {
+torch::Tensor from_image(
+    const uint8_t* image, int width, int height, int channels);
+torch::Tensor from_image(const cv::Mat& image);
+
 class GeneralDetector
 {
    public:
@@ -21,7 +25,11 @@ class GeneralDetector
     {
     }
 
-    torch::jit::IValue detect(const cv::Mat& image);
+    int network_width() const;
+    int network_height() const;
+
+    // TODO: Add autoResize parameter
+    torch::jit::IValue detect(const torch::Tensor& image);
 
    protected:
     torch::jit::Module model;
@@ -32,7 +40,7 @@ class GeneralDetector
     int netWidth;
     int netHeight;
 
-    std::string make_error_msg(const char* msg);
+    std::string make_error_msg(const char* msg) const;
 };
 
 class YORODetector::Impl : public GeneralDetector
@@ -48,6 +56,16 @@ class YORODetector::Impl : public GeneralDetector
     {
     }
 
+    // TODO: Add autoResize, autoPad parameter
+    std::vector<RBox> detect(
+        const torch::Tensor& image, float confTh, float nmsTh);
+    std::vector<RBox> detect(
+        const uint8_t* image,
+        int width,
+        int height,
+        int channels,
+        float confTh,
+        float nmsTh);
     std::vector<RBox> detect(const cv::Mat& image, float confTh, float nmsTh);
 };
 
@@ -64,6 +82,9 @@ class RotationDetector::Impl : public GeneralDetector
     {
     }
 
+    // TODO: Add autoResize, autoPad parameter
+    float detect(const torch::Tensor& image);
+    float detect(const uint8_t* image, int width, int height, int channels);
     float detect(const cv::Mat& image);
 };
 

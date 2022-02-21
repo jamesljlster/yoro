@@ -9,6 +9,11 @@
 
 namespace yoro_api
 {
+torch::Tensor resize(
+    const torch::Tensor& source, const std::vector<long>& outputSize);
+std::tuple<torch::Tensor, std::vector<long>> pad_to_aspect(
+    const torch::Tensor& source, float aspectRatio);
+
 torch::Tensor bbox_to_corners(const torch::Tensor& bbox);
 torch::Tensor rbox_similarity(
     const torch::Tensor& rbox1, const torch::Tensor& rbox2);

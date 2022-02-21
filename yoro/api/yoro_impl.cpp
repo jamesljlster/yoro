@@ -18,35 +18,20 @@ using torch::jit::Object;
 
 namespace yoro_api
 {
-std::tuple<cv::Mat, int, int> pad_to_aspect(
-    const cv::Mat& src, float aspectRatio)
+Tensor from_image(const uint8_t* image, int width, int height, int channels)
 {
-    int width = src.cols;
-    int height = src.rows;
+    return from_blob((void*)image, {1, height, width, channels}, torch::kUInt8)
+        .permute({0, 3, 1, 2})
+        .contiguous();
+}
 
-    // Find target width, height
-    cv::Mat imSize = cv::Mat({width, height});
-    cv::Mat cand1 = cv::Mat({width, (int)std::round(width / aspectRatio)});
-    cv::Mat cand2 = cv::Mat({(int)std::round(height * aspectRatio), height});
-    cv::Mat tarSize = (cv::sum((cand1 - imSize) < 0)[0] == 0) ? cand1 : cand2;
-
-    int tarWidth = tarSize.at<int>(0);   // Target width
-    int tarHeight = tarSize.at<int>(1);  // Target height
-
-    // Find padding parameters
-    float wPad = (float)(tarWidth - width) / 2.0;
-    float hPad = (float)(tarHeight - height) / 2.0;
-
-    int lPad = (int)std::floor(wPad);
-    int tPad = (int)std::floor(hPad);
-
-    // Padding image
-    cv::Mat mat = cv::Mat(tarHeight, tarWidth, src.type(), cv::Scalar(0, 0, 0));
-    cv::Rect roi = cv::Rect(lPad, tPad, src.cols, src.rows);
-    src.copyTo(mat(roi));
-
-    // Return padded image and shifted image origin point
-    return {mat, lPad, tPad};
+Tensor from_image(const cv::Mat& image)
+{
+    return from_image(
+        (const uint8_t*)image.ptr<char>(),
+        image.cols,
+        image.rows,
+        image.channels());
 }
 
 GeneralDetector::GeneralDetector(
@@ -91,56 +76,41 @@ GeneralDetector::GeneralDetector(
     this->model.eval();
 }
 
-torch::jit::IValue GeneralDetector::detect(const cv::Mat& image)
+int GeneralDetector::network_width() const { return this->netWidth; }
+int GeneralDetector::network_height() const { return this->netHeight; }
+
+torch::jit::IValue GeneralDetector::detect(const Tensor& image)
 {
-    if (image.empty())
-    {
-        throw std::invalid_argument(this->make_error_msg("Empty image."));
-    }
+    // Cast and normalize
+    Tensor inputs = image.to(this->opt) / 255.0;
 
-    // Conver BGR to RGB
-    cv::Mat mat;
-    cvtColor(image, mat, cv::COLOR_BGR2RGB);
-
-    // Resizing
-    cv::resize(mat, mat, cv::Size(this->netWidth, this->netHeight));
-
-    // Convert image to tensor
-    Tensor inputs =
-        from_blob(mat.ptr<char>(), {1, mat.rows, mat.cols, 3}, ScalarType::Byte)
-            .to(this->opt)
-            .permute({0, 3, 1, 2})
-            .contiguous() /
-        255.0;
-
-    // Forward
-    IValue outputs = model.forward({inputs});
-
-    return outputs;
+    // Resize and forward
+    return model.forward({resize(inputs, {this->netHeight, this->netWidth})});
 }
 
-std::string GeneralDetector::make_error_msg(const char* msg)
+std::string GeneralDetector::make_error_msg(const char* msg) const
 {
     return std::string("[YORO API (Error)] ") + std::string(msg);
 }
 
 std::vector<RBox> YORODetector::Impl::detect(
-    const cv::Mat& image, float confTh, float nmsTh)
+    const Tensor& image, float confTh, float nmsTh)
 {
     int width = this->netWidth;
     int height = this->netHeight;
 
     // Pad to aspect ratio
-    std::tuple<cv::Mat, int, int> padRet =
+    std::tuple<Tensor, std::vector<long>> padRet =
         pad_to_aspect(image, (float)width / height);
-    cv::Mat mat = std::get<0>(padRet);
-    int startX = std::get<1>(padRet);
-    int startY = std::get<2>(padRet);
-    float scale = float(mat.cols) / float(width);
+    Tensor inputs = std::get<0>(padRet);
+    std::vector<long> padParams = std::get<1>(padRet);
+    int startX = padParams[0];
+    int startY = padParams[2];
+    float scale = float(inputs.size(-1)) / float(width);
 
     // Forward, denormalize and flatten predictions
     std::vector<std::tuple<Tensor, Tensor, Tensor>> fwOutputs;
-    auto outList = GeneralDetector::detect(mat).toList();
+    auto outList = GeneralDetector::detect(inputs).toList();
     for (const IValue& tup : outList)
     {
         // Extract tensors
@@ -166,18 +136,47 @@ std::vector<RBox> YORODetector::Impl::detect(
     return nmsOut[0];
 }
 
-float RotationDetector::Impl::detect(const cv::Mat& image)
+std::vector<RBox> YORODetector::Impl::detect(
+    const uint8_t* image,
+    int width,
+    int height,
+    int channels,
+    float confTh,
+    float nmsTh)
+{
+    return this->detect(
+        from_image(image, width, height, channels), confTh, nmsTh);
+}
+
+std::vector<RBox> YORODetector::Impl::detect(
+    const cv::Mat& image, float confTh, float nmsTh)
+{
+    return this->detect(from_image(image), confTh, nmsTh);
+}
+
+float RotationDetector::Impl::detect(const torch::Tensor& image)
 {
     int width = this->netWidth;
     int height = this->netHeight;
 
     // Pad to aspect ratio
-    cv::Mat mat = std::get<0>(pad_to_aspect(image, (float)width / height));
+    Tensor inputs = std::get<0>(pad_to_aspect(image, (float)width / height));
 
     // Forward
-    Tensor outputs = GeneralDetector::detect(mat).toTensor();
+    Tensor outputs = GeneralDetector::detect(inputs).toTensor();
 
     return outputs.to(torch::kFloat32).item<float>();
+}
+
+float RotationDetector::Impl::detect(
+    const uint8_t* image, int width, int height, int channels)
+{
+    return this->detect(from_image(image, width, height, channels));
+}
+
+float RotationDetector::Impl::detect(const cv::Mat& image)
+{
+    return this->detect(from_image(image));
 }
 
 }  // namespace yoro_api

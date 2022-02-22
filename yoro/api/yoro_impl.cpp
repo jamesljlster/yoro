@@ -21,6 +21,7 @@ namespace yoro_api
 Tensor from_image(const uint8_t* image, int width, int height, int channels)
 {
     return from_blob((void*)image, {1, height, width, channels}, torch::kUInt8)
+        .index({Ellipsis, torch::arange(channels - 1, -1, -1)})
         .permute({0, 3, 1, 2})
         .contiguous();
 }

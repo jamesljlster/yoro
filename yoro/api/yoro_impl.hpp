@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include <torch/torch.h>
+#include <torch/extension.h>
 #include <opencv2/opencv.hpp>
 
 #include "yoro_api.hpp"

@@ -5,7 +5,16 @@ set(PROJECT_NAME yoro_api)
 set(MODULE_NAME ${PROJECT_NAME}_pym)
 
 # Set library public headers
-set(PROJECT_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/yoro_api.hpp")
+set(PROJECT_CONFIG_HEADER_SOURCE
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/yoro_api_config.h.in"
+    )
+set(PROJECT_CONFIG_HEADER_DESTINATION
+    "${CMAKE_CURRENT_SOURCE_DIR}/yoro_api_config.h"
+    )
+set(PROJECT_HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/yoro_api.hpp"
+    "${PROJECT_CONFIG_HEADER_DESTINATION}"
+    )
 
 # Compile setting
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} -fopenmp -Wall -fPIC")
@@ -35,6 +44,10 @@ file(GLOB MODULE_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/*.cxx")
 set(LIB_DIR "lib/${PROJECT_NAME}")
 set(INC_DIR "include/${PROJECT_NAME}")
 set(EXPORT_DIR "lib/cmake/${PROJECT_NAME}")
+
+# Configure header file
+configure_file(${PROJECT_CONFIG_HEADER_SOURCE} ${PROJECT_CONFIG_HEADER_DESTINATION})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # Build library
 add_library(${PROJECT_NAME} ${PROJECT_SRCS})

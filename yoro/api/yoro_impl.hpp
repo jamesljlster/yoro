@@ -5,16 +5,22 @@
 #include <vector>
 
 #include <torch/extension.h>
-#include <opencv2/opencv.hpp>
 
 #include "yoro_api.hpp"
+
+#ifdef WITH_OPENCV
+#    include <opencv2/opencv.hpp>
+#endif
 
 namespace yoro_api
 {
 torch::Tensor from_image(
     const uint8_t* image, int width, int height, int channels);
+
+#ifdef WITH_OPENCV
 torch::Tensor from_image(const cv::Mat& image);
 cv::Mat to_image(const torch::Tensor& source);
+#endif
 
 class GeneralDetector
 {
@@ -67,7 +73,10 @@ class YORODetector::Impl : public GeneralDetector
         int channels,
         float confTh,
         float nmsTh);
+
+#ifdef WITH_OPENCV
     std::vector<RBox> detect(const cv::Mat& image, float confTh, float nmsTh);
+#endif
 };
 
 class RotationDetector::Impl : public GeneralDetector
@@ -86,7 +95,10 @@ class RotationDetector::Impl : public GeneralDetector
     // TODO: Add autoResize, autoPad parameter
     float detect(const torch::Tensor& image);
     float detect(const uint8_t* image, int width, int height, int channels);
+
+#ifdef WITH_OPENCV
     float detect(const cv::Mat& image);
+#endif
 };
 
 }  // namespace yoro_api

@@ -26,6 +26,7 @@ Tensor from_image(const uint8_t* image, int width, int height, int channels)
         .contiguous();
 }
 
+#ifdef WITH_OPENCV
 Tensor from_image(const cv::Mat& image)
 {
     return from_image(
@@ -41,6 +42,7 @@ cv::Mat to_image(const Tensor& source)
     return cv::Mat(image.size(0), image.size(1), CV_8UC3, image.data_ptr())
         .clone();
 }
+#endif
 
 GeneralDetector::GeneralDetector(
     const char* modelPath, const DeviceType& devType)
@@ -156,11 +158,13 @@ std::vector<RBox> YORODetector::Impl::detect(
         from_image(image, width, height, channels), confTh, nmsTh);
 }
 
+#ifdef WITH_OPENCV
 std::vector<RBox> YORODetector::Impl::detect(
     const cv::Mat& image, float confTh, float nmsTh)
 {
     return this->detect(from_image(image), confTh, nmsTh);
 }
+#endif
 
 float RotationDetector::Impl::detect(const torch::Tensor& image)
 {
@@ -182,9 +186,11 @@ float RotationDetector::Impl::detect(
     return this->detect(from_image(image, width, height, channels));
 }
 
+#ifdef WITH_OPENCV
 float RotationDetector::Impl::detect(const cv::Mat& image)
 {
     return this->detect(from_image(image));
 }
+#endif
 
 }  // namespace yoro_api

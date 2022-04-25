@@ -42,12 +42,23 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     py::class_<YORODetector>(m, "YORODetector")
         .def(py::init<const std::string&, const DeviceType&>())
         .def(py::init<const std::string&>())
-        .def("detect", &YORODetector::detect);
+#ifdef WITH_OPENCV
+        .def(
+            "detect",
+            py::overload_cast<const cv::Mat&, float, float>(
+                &YORODetector::detect))
+#endif
+        ;
 
     py::class_<RotationDetector>(m, "RotationDetector")
         .def(py::init<const std::string&, const DeviceType&>())
         .def(py::init<const std::string&>())
-        .def("detect", &RotationDetector::detect);
+#ifdef WITH_OPENCV
+        .def(
+            "detect",
+            py::overload_cast<const cv::Mat&>(&RotationDetector::detect))
+#endif
+        ;
 
     m.def("bbox_to_corners", bbox_to_corners);
     m.def("rbox_similarity", rbox_similarity);

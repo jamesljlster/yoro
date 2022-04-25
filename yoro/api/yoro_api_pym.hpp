@@ -5,12 +5,18 @@
 
 #include <pybind11/numpy.h>
 #include <torch/extension.h>
-#include <opencv2/opencv.hpp>
+
+#include "yoro_api_config.h"
+
+#ifdef WITH_OPENCV
+#    include <opencv2/opencv.hpp>
+#endif
 
 namespace pybind11
 {
 namespace detail
 {
+#ifdef WITH_OPENCV
 template <>
 struct type_caster<cv::Mat>
 {
@@ -106,6 +112,7 @@ struct type_caster<cv::Mat>
         return py::array(dtype, shape, src.ptr()).release();
     }
 };
+#endif
 
 }  // namespace detail
 }  // namespace pybind11

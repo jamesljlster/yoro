@@ -14,7 +14,6 @@ if(${WITH_OPENCV} OR ${BUILD_TEST})
     endif()
 
     include_directories(${OpenCV_INCLUDE_DIRS})
-    add_compile_definitions(WITH_OPENCV)
 endif()
 
 # Find PyTorch

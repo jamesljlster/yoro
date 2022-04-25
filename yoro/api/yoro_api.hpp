@@ -5,7 +5,11 @@
 #include <string>
 #include <vector>
 
-#include <opencv2/opencv.hpp>
+#include "yoro_api_config.h"
+
+#ifdef WITH_OPENCV
+#    include <opencv2/opencv.hpp>
+#endif
 
 namespace yoro_api
 {
@@ -52,7 +56,17 @@ class YORODetector
     {
     }
 
+    std::vector<RBox> detect(
+        const uint8_t* image,
+        int width,
+        int height,
+        int channels,
+        float confTh,
+        float nmsTh);
+
+#ifdef WITH_OPENCV
     std::vector<RBox> detect(const cv::Mat& image, float confTh, float nmsTh);
+#endif
 
    protected:
     class Impl;
@@ -71,7 +85,11 @@ class RotationDetector
     {
     }
 
+    float detect(const uint8_t* image, int width, int height, int channels);
+
+#ifdef WITH_OPENCV
     float detect(const cv::Mat& image);
+#endif
 
    protected:
     class Impl;

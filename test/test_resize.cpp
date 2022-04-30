@@ -1,9 +1,12 @@
-#include <iostream>
+#include <yoro_api.hpp>
 
-#include <opencv2/opencv.hpp>
+#ifdef WITH_OPENCV
+#    include <iostream>
 
-#include <calc_ops.hpp>
-#include <yoro_impl.hpp>
+#    include <opencv2/opencv.hpp>
+
+#    include <calc_ops.hpp>
+#    include <yoro_impl.hpp>
 
 using namespace cv;
 using namespace std;
@@ -40,3 +43,12 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+#else
+#    include <iostream>
+using namespace std;
+int main()
+{
+    cout << "The test is ignored due to OpenCV support is disabled." << endl;
+    return 0;
+}
+#endif

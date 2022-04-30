@@ -1,11 +1,14 @@
-#include <cstdio>
-#include <iostream>
-#include <tuple>
+#include <yoro_api.hpp>
 
-#include <opencv2/opencv.hpp>
+#ifdef WITH_OPENCV
+#    include <cstdio>
+#    include <iostream>
+#    include <tuple>
 
-#include <calc_ops.hpp>
-#include <yoro_impl.hpp>
+#    include <opencv2/opencv.hpp>
+
+#    include <calc_ops.hpp>
+#    include <yoro_impl.hpp>
 
 using namespace std;
 using namespace cv;
@@ -37,3 +40,13 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+#else
+#    include <iostream>
+using namespace std;
+int main()
+{
+    cout << "The test is ignored due to OpenCV support is disabled." << endl;
+    return 0;
+}
+#endif

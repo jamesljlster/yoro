@@ -1,5 +1,7 @@
 #include <yoro_api.hpp>
 
+#ifdef WITH_OPENCV
+
 using namespace yoro_api;
 using namespace std;
 using namespace cv;
@@ -43,3 +45,13 @@ catch (exception& ex)
     cout << ex.what() << endl;
     return -1;
 }
+
+#else
+#    include <iostream>
+using namespace std;
+int main()
+{
+    cout << "The test is ignored due to OpenCV support is disabled." << endl;
+    return 0;
+}
+#endif

@@ -1,2 +1,5 @@
 # Built python module
 *.so
+
+# Generated header files
+yoro_api_config.h

@@ -12,13 +12,13 @@ YORODetector::YORODetector(const char* modelPath, const DeviceType& devType)
 
 vector<RBox> YORODetector::detect(
     const uint8_t* image,
-    int width,
     int height,
+    int width,
     int channels,
     float confTh,
     float nmsTh)
 {
-    return this->impl->detect(image, width, height, channels, confTh, nmsTh);
+    return this->impl->detect(image, height, width, channels, confTh, nmsTh);
 }
 
 #ifdef WITH_OPENCV
@@ -36,9 +36,9 @@ RotationDetector::RotationDetector(
 }
 
 float RotationDetector::detect(
-    const uint8_t* image, int width, int height, int channels)
+    const uint8_t* image, int height, int width, int channels)
 {
-    return this->impl->detect(image, width, height, channels);
+    return this->impl->detect(image, height, width, channels);
 }
 
 #ifdef WITH_OPENCV

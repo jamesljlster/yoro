@@ -18,7 +18,7 @@ using torch::jit::Object;
 
 namespace yoro_api
 {
-Tensor from_image(const uint8_t* image, int width, int height, int channels)
+Tensor from_image(const uint8_t* image, int height, int width, int channels)
 {
     return from_blob((void*)image, {1, height, width, channels}, torch::kUInt8)
         .index({Ellipsis, torch::arange(channels - 1, -1, -1)})
@@ -31,8 +31,8 @@ Tensor from_image(const cv::Mat& image)
 {
     return from_image(
         (const uint8_t*)image.ptr<char>(),
-        image.cols,
         image.rows,
+        image.cols,
         image.channels());
 }
 
@@ -148,14 +148,14 @@ std::vector<RBox> YORODetector::Impl::detect(
 
 std::vector<RBox> YORODetector::Impl::detect(
     const uint8_t* image,
-    int width,
     int height,
+    int width,
     int channels,
     float confTh,
     float nmsTh)
 {
     return this->detect(
-        from_image(image, width, height, channels), confTh, nmsTh);
+        from_image(image, height, width, channels), confTh, nmsTh);
 }
 
 #ifdef WITH_OPENCV
@@ -181,9 +181,9 @@ float RotationDetector::Impl::detect(const torch::Tensor& image)
 }
 
 float RotationDetector::Impl::detect(
-    const uint8_t* image, int width, int height, int channels)
+    const uint8_t* image, int height, int width, int channels)
 {
-    return this->detect(from_image(image, width, height, channels));
+    return this->detect(from_image(image, height, width, channels));
 }
 
 #ifdef WITH_OPENCV

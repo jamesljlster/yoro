@@ -58,8 +58,8 @@ class YORODetector
 
     std::vector<RBox> detect(
         const uint8_t* image,
-        int width,
         int height,
+        int width,
         int channels,
         float confTh,
         float nmsTh);
@@ -85,7 +85,7 @@ class RotationDetector
     {
     }
 
-    float detect(const uint8_t* image, int width, int height, int channels);
+    float detect(const uint8_t* image, int height, int width, int channels);
 
 #ifdef WITH_OPENCV
     float detect(const cv::Mat& image);

@@ -15,7 +15,7 @@
 namespace yoro_api
 {
 torch::Tensor from_image(
-    const uint8_t* image, int width, int height, int channels);
+    const uint8_t* image, int height, int width, int channels);
 
 #ifdef WITH_OPENCV
 torch::Tensor from_image(const cv::Mat& image);
@@ -68,8 +68,8 @@ class YORODetector::Impl : public GeneralDetector
         const torch::Tensor& image, float confTh, float nmsTh);
     std::vector<RBox> detect(
         const uint8_t* image,
-        int width,
         int height,
+        int width,
         int channels,
         float confTh,
         float nmsTh);
@@ -94,7 +94,7 @@ class RotationDetector::Impl : public GeneralDetector
 
     // TODO: Add autoResize, autoPad parameter
     float detect(const torch::Tensor& image);
-    float detect(const uint8_t* image, int width, int height, int channels);
+    float detect(const uint8_t* image, int height, int width, int channels);
 
 #ifdef WITH_OPENCV
     float detect(const cv::Mat& image);

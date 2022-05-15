@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning][].
 
 -   Fix confidence weighted summation in nms.
 
+### Changed
+
+-   Image preprocessing backend is moved from OpenCV to torch.
+    OpenCV C++ development package is no longer a required dependency.
+
 ## \[0.5.0\] - 2021-10-11
 
 The release is mainly for training iterating changing from epoch based to batch based:

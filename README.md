@@ -83,9 +83,12 @@ The following dependencies need to pay attention:
     If your PyTorch was built with CUDA support, please install the
     corresponding version of CUDA toolkit and cuDNN.
 
--   OpenCV 4.0.0+
+Optional dependencies:
 
-    C++ development package is required.
+-   \[Optional\] OpenCV 4.0.0+
+
+    YORO C++ API optionally requires OpenCV C++ development package for
+    providing cv::Mat inference interface support.
 
 ## Collaboration Tools
 

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
-## \[0.6.0\] - 2022-05-16
+## \[0.6.0\] - 2022-05-19
 
 The release is for C++ api changes.  
 Image preprocessing backend is moved from OpenCV to PyTorch builtin operators.  

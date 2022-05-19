@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[Unreleased\]
 
+## \[0.6.0\] - 2022-05-16
+
 ### Fixed
 
 -   Fix confidence weighted summation in nms.

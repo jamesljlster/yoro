@@ -10,7 +10,7 @@ endif()
 # Set project information
 set(PROJECT_NAME YORO)
 set(PROJECT_LANGUAGE CXX)
-set(PROJECT_VERSION 0.5.0)
+set(PROJECT_VERSION 0.6.0)
 
 # Environment variables
 file(RELATIVE_PATH REL_INSTALL_PREFIX

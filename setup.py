@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
         # Basic informations
         name='yoro',
-        version='0.4.0',
+        version='0.6.0',
         description='YORO: A YOLO Variant for Rotated Object Detection',
         url='https://gitlab.ical.tw/jamesljlster/yoro',
         author='Cheng-Ling Lai',

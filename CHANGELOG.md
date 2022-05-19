@@ -9,14 +9,17 @@ and this project adheres to [Semantic Versioning][].
 
 ## \[0.6.0\] - 2022-05-16
 
+The release is for C++ api changes.  
+Image preprocessing backend is moved from OpenCV to PyTorch builtin operators.  
+OpenCV C++ development package is no longer a required dependency.
+
 ### Fixed
 
 -   Fix confidence weighted summation in nms.
 
 ### Changed
 
--   Image preprocessing backend is moved from OpenCV to torch.
-    OpenCV C++ development package is no longer a required dependency.
+-   Moved image preprocessing backend from OpenCV to PyTorch builtin operators.
 
 ## \[0.5.0\] - 2021-10-11
 

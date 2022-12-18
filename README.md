@@ -74,7 +74,7 @@ See [requirements.txt][] for Python package
 dependencies.  
 The following dependencies need to pay attention:
 
--   PyTorch 1.9.0 and TorchVision 0.10.0
+-   PyTorch 1.11.0 and TorchVision 0.12.0
 
     Compatibilty with other versions is not guaranteed.
 
@@ -89,6 +89,35 @@ Optional dependencies:
 
     YORO C++ API optionally requires OpenCV C++ development package for
     providing cv::Mat inference interface support.
+
+### Installation Instructions
+
+The following instructions demonstrate package installation with
+conda based environments such as Miniconda or Anaconda.  
+You don’t have to follow this if YORO can be setup correctly by yourself.
+
+``` bash
+# Create and activate a fresh conda environment
+conda create -n yoro-env python==3.8.15
+conda activate yoro-env  # This conda environment should be kept activated for the rest of instructions
+
+# Install PyTorch 1.11.0 and corresponding CUDA Toolkit
+conda install pytorch==1.11.0 torchvision==0.12.0 cudatoolkit=11.3 -c pytorch
+conda install -c "nvidia/label/cuda-11.3.1" cuda-toolkit
+
+# Install some build dependendies (cmake, gcc)
+conda install -c conda-forge "gxx_linux-64<11"
+conda install -c anaconda cmake
+
+# Build and install YORO package
+git clone https://github.com/jamesljlster/yoro.git
+cd yoro
+pip install -v .
+cd ..
+
+# Test if everything is fine
+python -c "import yoro"
+```
 
 ## Collaboration Tools
 
